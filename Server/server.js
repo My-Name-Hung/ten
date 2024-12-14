@@ -63,9 +63,19 @@ app.post("/login", loginLimiter, async (req, res) => {
 
     const user = result.rows[0];
 
+    // Tạo token JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h", // Token hết hạn sau 1 giờ
+      }
+    );
+
     // Kiểm tra trạng thái "must_change_password"
     if (user.must_change_password) {
       return res.status(200).send({
+        token,
         success: false,
         message: "Bạn cần đổi mật khẩu trước khi truy cập hệ thống",
         mustChangePassword: true,
@@ -88,8 +98,26 @@ app.post("/login", loginLimiter, async (req, res) => {
   }
 });
 
+// TOKEN //////
+const jwt = require("jsonwebtoken");
+
+// Middleware xác thực token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token)
+    return res.status(401).send({ message: "Token không được cung cấp" });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).send({ message: "Token không hợp lệ" });
+    req.user = user; // Gán thông tin user vào req
+    next();
+  });
+};
+
 // Đổi mật khẩu
-app.post("/reset-password", async (req, res) => {
+app.post("/reset-password", authenticateToken, async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
 
   try {
