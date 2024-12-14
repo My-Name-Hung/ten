@@ -5,8 +5,15 @@ const app = express();
 const Client = require("pg").Client;
 const cors = require("cors");
 app.use(express.json());
-app.use(cors());
 const cron = require("node-cron"); // Import the cron library
+
+// Setting crors
+const corsOptions = {
+  origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"], // Allow only requests from this origin
+  methods: "GET,POST", // Allow only these methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allow only these headers
+};
+app.use(cors(corsOptions));
 
 // Let run server
 const port = process.env.SERVER_PORT || 3002;
@@ -39,35 +46,39 @@ const loginLimiter = rateLimit({
 });
 
 // Add login endpoint
-app.post("/login", loginLimiter, async (req, res) => {
-  const { username, password } = req.body;
+app.post(
+  "https://ten-server.onrender.com/login",
+  loginLimiter,
+  async (req, res) => {
+    const { username, password } = req.body;
 
-  try {
-    // Query the user by username
-    const result = await db.query(
-      "SELECT * FROM users WHERE username = $1 and password = $2",
-      [username, password]
-    );
+    try {
+      // Query the user by username
+      const result = await db.query(
+        "SELECT * FROM users WHERE username = $1 and password = $2",
+        [username, password]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(401).send({ message: "Incorrect username" });
+      if (result.rows.length === 0) {
+        return res.status(401).send({ message: "Incorrect username" });
+      }
+
+      const user = result.rows[0];
+      console.log("User found:", user);
+
+      // Update the last_login column
+      await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
+        user.id,
+      ]);
+
+      // Successful login
+      res.send({ success: true });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).send({ error: "Server error" });
     }
-
-    const user = result.rows[0];
-    console.log("User found:", user);
-
-    // Update the last_login column
-    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
-      user.id,
-    ]);
-
-    // Successful login
-    res.send({ success: true });
-  } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).send({ error: "Server error" });
   }
-});
+);
 
 // Cron Job: Runs every 5 minutes to check the database health
 cron.schedule("*/1 * * * *", async () => {
