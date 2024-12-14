@@ -41,44 +41,42 @@ const { connectionString } = require("pg/lib/defaults");
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 login requests per windowMs
-  message: { error: "Too many login attempts. Please try again later." },
+  max: 1000, // Limit each IP to 10 login requests per windowMs
+  message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
 
 // Add login endpoint
-app.post(
-  "https://ten-server.onrender.com/login",
-  loginLimiter,
-  async (req, res) => {
-    const { username, password } = req.body;
+app.post("/login", loginLimiter, async (req, res) => {
+  const { username, password } = req.body;
 
-    try {
-      // Query the user by username
-      const result = await db.query(
-        "SELECT * FROM users WHERE username = $1 and password = $2",
-        [username, password]
-      );
+  try {
+    // Query the user by username
+    const result = await db.query(
+      "SELECT * FROM users WHERE username = $1 and password = $2",
+      [username, password]
+    );
 
-      if (result.rows.length === 0) {
-        return res.status(401).send({ message: "Incorrect username" });
-      }
-
-      const user = result.rows[0];
-      console.log("User found:", user);
-
-      // Update the last_login column
-      await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
-        user.id,
-      ]);
-
-      // Successful login
-      res.send({ success: true });
-    } catch (error) {
-      console.error("Error during login:", error);
-      res.status(500).send({ error: "Server error" });
+    if (result.rows.length === 0) {
+      return res
+        .status(401)
+        .send({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
+
+    const user = result.rows[0];
+    console.log("User found:", user);
+
+    // Update the last_login column
+    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
+      user.id,
+    ]);
+
+    // Successful login
+    res.send({ success: true });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).send({ error: "Lỗi hệ thống" });
   }
-);
+});
 
 // Cron Job: Runs every 5 minutes to check the database health
 cron.schedule("*/1 * * * *", async () => {
