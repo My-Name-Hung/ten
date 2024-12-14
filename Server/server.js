@@ -6,7 +6,6 @@ const Client = require("pg").Client;
 const cors = require("cors");
 app.use(express.json());
 app.use(cors());
-const jwt = require("jsonwebtoken");
 const cron = require("node-cron"); // Import the cron library
 
 // Let run server
@@ -18,7 +17,7 @@ app.listen(port, () => {
 
 // Create config database
 const dbConfig = {
- connectionString: process.env.POSTGRES_URL + "?sslmode=require"
+  connectionString: process.env.POSTGRES_URL + "?sslmode=require",
 };
 
 // Create a new PostgreSQL client
@@ -28,9 +27,6 @@ const db = new Client(dbConfig);
 db.connect().then(() => {
   console.log("Connected to PostgreSQL database");
 });
-
-// Add bcrypt for password hashing
-const bcrypt = require("bcrypt");
 
 // Rate login
 const rateLimit = require("express-rate-limit");
@@ -43,7 +39,7 @@ const loginLimiter = rateLimit({
 });
 
 // Add login endpoint
-app.post("/login",loginLimiter, async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   try {
@@ -64,7 +60,7 @@ app.post("/login",loginLimiter, async (req, res) => {
     await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
       user.id,
     ]);
-    
+
     // Successful login
     res.send({ success: true });
   } catch (error) {
@@ -77,12 +73,16 @@ app.post("/login",loginLimiter, async (req, res) => {
 cron.schedule("*/1 * * * *", async () => {
   try {
     console.log("Running Cron Job: Checking database health...");
-    
+
     // Example query to check for stale data
-    const result = await db.query("SELECT COUNT(*) FROM users WHERE last_login < NOW() - INTERVAL '30 days'");
+    const result = await db.query(
+      "SELECT COUNT(*) FROM users WHERE last_login < NOW() - INTERVAL '30 days'"
+    );
     const staleUsers = result.rows[0].count;
 
-    console.log(`There are ${staleUsers} users who haven't logged in for the past 30 days.`);
+    console.log(
+      `There are ${staleUsers} users who haven't logged in for the past 30 days.`
+    );
 
     // Additional actions, such as cleaning up old data, can be added here
   } catch (error) {
