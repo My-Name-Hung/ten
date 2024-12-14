@@ -46,9 +46,23 @@ const loginLimiter = rateLimit({
   max: 1000, // Limit each IP to 10 login requests per windowMs
   message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
+
+// Self-ping function using Axios
+const pingServer = () => {
+  const serverUrl = "https://ten-server.onrender.com"; // Replace with your server's public URL
+  axios.get(serverUrl)
+    .then(() => {
+      console.log('Pinged server successfully at ' + new Date().toISOString());
+    })
+    .catch((error) => {
+      console.error('Failed to ping server:', error.message);
+    });
+};
+
 // Cron Job: Runs every 1 minutes to check the database health
 cron.schedule("*/1 * * * *", async () => {
-  console.log("login health...")
+  console.log("server health...")
+  pingServer();
   // Add login endpoint
   app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
