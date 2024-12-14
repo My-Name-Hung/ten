@@ -1,2 +1,2 @@
 # ten
-tẻngoup
+tengoup
