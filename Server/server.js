@@ -10,10 +10,7 @@ const cron = require("node-cron"); // Import the cron library
 // Setting crors
 app.use(
   cors({
-    origin: [
-      "https://windowaudit-demo.netlify.app",
-      "http://localhost:5173",
-    ],
+    origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
   })
 );
 
@@ -47,56 +44,101 @@ const loginLimiter = rateLimit({
   message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
 
-// Self-ping function using Axios
+// Add login endpoint
+app.post("/login", loginLimiter, async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    // Tìm người dùng theo username và password
+    const result = await db.query(
+      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      [username, password]
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(401)
+        .send({ message: "Tài khoản hoặc mật khẩu không đúng" });
+    }
+
+    const user = result.rows[0];
+
+    // Kiểm tra trạng thái "must_change_password"
+    if (user.must_change_password) {
+      return res.status(200).send({
+        success: false,
+        message: "Bạn cần đổi mật khẩu trước khi truy cập hệ thống",
+        mustChangePassword: true,
+      });
+    }
+
+    // Cập nhật thời gian đăng nhập lần cuối
+    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
+      user.id,
+    ]);
+
+    res.status(200).send({
+      success: true,
+      message: "Đăng nhập thành công",
+      mustChangePassword: false,
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).send({ error: "Lỗi hệ thống" });
+  }
+});
+
+// Đổi mật khẩu
+app.post("/reset-password", async (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
+
+  try {
+    // Kiểm tra mật khẩu cũ
+    const userResult = await db.query(
+      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      [username, oldPassword]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res
+        .status(401)
+        .send({ message: "Mật khẩu cũ không chính xác. Vui lòng thử lại." });
+    }
+
+    // Cập nhật mật khẩu mới
+    const updateResult = await db.query(
+      "UPDATE users SET password = $1, must_change_password = false WHERE username = $2 RETURNING *",
+      [newPassword, username]
+    );
+
+    if (updateResult.rowCount === 0) {
+      return res.status(400).send({ message: "Đổi mật khẩu thất bại." });
+    }
+
+    res.status(200).send({ message: "Đổi mật khẩu thành công." });
+  } catch (error) {
+    console.error("Error during password reset:", error);
+    res.status(500).send({ error: "Lỗi hệ thống" });
+  }
+});
+
+// Reload server liên tục
 const pingServer = () => {
   const serverUrl = "https://ten-server.onrender.com"; // Replace with your server's public URL
-  axios.get(serverUrl)
+  axios
+    .get(serverUrl)
     .then(() => {
-      console.log('Pinged server successfully at ' + new Date().toISOString());
+      console.log("Pinged server successfully at " + new Date().toISOString());
     })
     .catch((error) => {
-      console.error('Failed to ping server:', error.message);
+      console.error("Failed to ping server:", error.message);
     });
 };
 
-// Add login endpoint
-  app.post("/login", loginLimiter, async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-      // Query the user by username
-      const result = await db.query(
-        "SELECT * FROM users WHERE username = $1 and password = $2",
-        [username, password]
-      );
-
-      if (result.rows.length === 0) {
-        return res
-          .status(401)
-          .send({ message: "Tài khoản hoặc mật khẩu không đúng" });
-      }
-
-      const user = result.rows[0];
-      console.log("User found:", user);
-
-      // Update the last_login column
-      await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
-        user.id,
-      ]);
-
-      // Successful login
-      res.send({ success: true });
-    } catch (error) {
-      console.error("Error during login:", error);
-      res.status(500).send({ error: "Lỗi hệ thống" });
-    }
-  });
-
-// Cron Job: Runs every 1 minutes to check the database health
+// Cron Job: Runs every 5 minutes to check the database health
 cron.schedule("*/1 * * * *", async () => {
-  console.log("server health...")
+  console.log("Running server...");
   pingServer();
-  
   try {
     console.log("Running Cron Job: Checking database health...");
 
@@ -115,5 +157,3 @@ cron.schedule("*/1 * * * *", async () => {
     console.error("Error running cron job:", error);
   }
 });
-
-
