@@ -59,11 +59,7 @@ const pingServer = () => {
     });
 };
 
-// Cron Job: Runs every 1 minutes to check the database health
-cron.schedule("*/1 * * * *", async () => {
-  console.log("server health...")
-  pingServer();
-  // Add login endpoint
+// Add login endpoint
   app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
 
@@ -96,6 +92,11 @@ cron.schedule("*/1 * * * *", async () => {
     }
   });
 
+// Cron Job: Runs every 1 minutes to check the database health
+cron.schedule("*/1 * * * *", async () => {
+  console.log("server health...")
+  pingServer();
+  
   try {
     console.log("Running Cron Job: Checking database health...");
 
