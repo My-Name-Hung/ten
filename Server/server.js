@@ -6,6 +6,7 @@ const Client = require("pg").Client;
 const cors = require("cors");
 app.use(express.json());
 const cron = require("node-cron"); // Import the cron library
+const https = require("https");
 
 // Setting crors
 app.use(
@@ -122,23 +123,22 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-// Reload server liên tục
-const pingServer = () => {
-  const serverUrl = "https://ten-server.onrender.com"; // Replace with your server's public URL
-  axios
-    .get(serverUrl)
-    .then(() => {
-      console.log("Pinged server successfully at " + new Date().toISOString());
-    })
-    .catch((error) => {
-      console.error("Failed to ping server:", error.message);
-    });
-};
-
 // Cron Job: Runs every 5 minutes to check the database health
 cron.schedule("*/1 * * * *", async () => {
-  console.log("Running server...");
-  pingServer();
+  const url = "https://ten-server.onrender.com";
+
+  https
+    .get(url, (res) => {
+      if (res.statusCode === 404) {
+        console.log("Server pinged successfully to prevent sleep.");
+      } else {
+        console.error(`Server ping failed with status code: ${res.statusCode}`);
+      }
+    })
+    .on("error", (error) => {
+      console.error("Error pinging server:", error);
+    });
+
   try {
     console.log("Running Cron Job: Checking database health...");
 
