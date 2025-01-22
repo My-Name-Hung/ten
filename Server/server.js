@@ -24,7 +24,11 @@ app.listen(port, () => {
 
 // Create config database
 const dbConfig = {
-  connectionString: process.env.POSTGRES_URL + "?sslmode=require",
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  host: process.env.POSTGRES_HOST,
+  port: process.env.POSTGRES_PORT,
+  database: process.env.POSTGRES_DB,
 };
 
 // Create a new PostgreSQL client
@@ -37,7 +41,7 @@ db.connect().then(() => {
 
 // Rate login
 const rateLimit = require("express-rate-limit");
-const { connectionString } = require("pg/lib/defaults");
+const { connectionString, password, host, database } = require("pg/lib/defaults");
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
