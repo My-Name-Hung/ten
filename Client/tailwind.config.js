@@ -11,6 +11,9 @@ export default withMT({
     "./node_modules/tw-elements/js/**/*.js",
   ],
   theme: {
+    backgroundImage: {
+      coke: "url('./src/assets/Reset/san-pham-coca-cola.jpg')",
+    },
     extend: {
       animation: {
         "fade-in-up": "fadeInUp 1s ease-out",

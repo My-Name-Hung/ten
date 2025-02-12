@@ -4,7 +4,8 @@ const express = require("express");
 const app = express();
 const Client = require("pg").Client;
 const cors = require("cors");
-app.use(express.json());
+const bcrypt = require("bcrypt"); // Add this for password hashing
+const jwt = require("jsonwebtoken"); // Add this for JWT
 const cron = require("node-cron"); // Import the cron library
 const https = require("https");
 
@@ -54,81 +55,116 @@ const loginLimiter = rateLimit({
   message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
 
-// Add login endpoint
-app.post("/login", loginLimiter, async (req, res) => {
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ message: "Không tìm thấy token" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Token không hợp lệ" });
+  }
+};
+
+// Login endpoint
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Tìm người dùng theo username và password
     const result = await db.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
-      [username, password]
+      "SELECT * FROM users WHERE username = $1",
+      [username]
     );
 
     if (result.rows.length === 0) {
-      return res
-        .status(401)
-        .send({ message: "Tài khoản hoặc mật khẩu không đúng" });
-    }
-
-    const user = result.rows[0];
-
-    // Kiểm tra trạng thái "must_change_password"
-    if (user.must_change_password) {
-      return res.status(200).send({
-        success: false,
-        message: "Bạn cần đổi mật khẩu trước khi truy cập hệ thống",
-        mustChangePassword: true,
+      return res.status(401).json({ 
+        message: "Tài khoản hoặc mật khẩu không đúng" 
       });
     }
 
-    // Cập nhật thời gian đăng nhập lần cuối
-    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
-      user.id,
-    ]);
+    const user = result.rows[0];
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
-    res.status(200).send({
+    if (!passwordMatch) {
+      return res.status(401).json({ 
+        message: "Tài khoản hoặc mật khẩu không đúng" 
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, userscode: user.userscode },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Update last login
+    await db.query(
+      "UPDATE users SET last_login = NOW() WHERE id = $1",
+      [user.id]
+    );
+
+    res.json({
       success: true,
-      message: "Đăng nhập thành công",
-      mustChangePassword: false,
+      token,
+      mustChangePassword: user.must_change_password,
+      message: "Đăng nhập thành công"
     });
+
   } catch (error) {
-    console.error("Error during login:", error);
-    res.status(500).send({ error: "Lỗi hệ thống" });
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 });
 
-// Đổi mật khẩu
-app.post("/reset-password", async (req, res) => {
+// Reset password endpoint
+app.post("/reset-password", verifyToken, async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
 
   try {
-    // Kiểm tra mật khẩu cũ
     const userResult = await db.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
-      [username, oldPassword]
+      "SELECT * FROM users WHERE username = $1",
+      [username]
     );
 
     if (userResult.rows.length === 0) {
-      return res
-        .status(401)
-        .send({ message: "Mật khẩu cũ không chính xác. Vui lòng thử lại." });
+      return res.status(401).json({ 
+        message: "Người dùng không tồn tại" 
+      });
     }
 
-    // Cập nhật mật khẩu mới
-    const updateResult = await db.query(
-      "UPDATE users SET password = $1, must_change_password = false WHERE username = $2 RETURNING *",
-      [newPassword, username]
+    const user = userResult.rows[0];
+    const passwordMatch = await bcrypt.compare(oldPassword, user.password_hash);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ 
+        message: "Mật khẩu cũ không chính xác" 
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await db.query(
+      `UPDATE users 
+       SET password_hash = $1, 
+           must_change_password = false,
+           updated_at = NOW()
+       WHERE username = $2`,
+      [newPasswordHash, username]
     );
 
-    if (updateResult.rowCount === 0) {
-      return res.status(400).send({ message: "Đổi mật khẩu thất bại." });
-    }
-
-    res.status(200).send({ message: "Đổi mật khẩu thành công." });
+    res.json({ message: "Đổi mật khẩu thành công" });
   } catch (error) {
-    console.error("Error during password reset:", error);
-    res.status(500).send({ error: "Lỗi hệ thống" });
+    console.error("Password reset error:", error);
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 });
 
@@ -185,5 +221,130 @@ cron.schedule("*/1 * * * *", async () => {
     // Additional actions, such as cleaning up old data, can be added here
   } catch (error) {
     console.error("Error running cron job:", error);
+  }
+});
+
+// Admin login endpoint
+app.post("/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const result = await db.query(
+      "SELECT * FROM admin_users WHERE username = $1",
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const admin = result.rows[0];
+    const passwordMatch = await bcrypt.compare(password, admin.password_hash);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: admin.id, isAdmin: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token });
+  } catch (error) {
+    console.error("Admin login error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Admin middleware
+const verifyAdmin = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+// Create user endpoint (admin only)
+app.post("/admin/create-user", verifyAdmin, async (req, res) => {
+  const { username, password, userscode } = req.body;
+
+  try {
+    // Check if username or userscode already exists
+    const existingUser = await db.query(
+      "SELECT * FROM users WHERE username = $1 OR userscode = $2",
+      [username, userscode]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ 
+        message: "Username or userscode already exists" 
+      });
+    }
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    const result = await db.query(
+      `INSERT INTO users (username, password_hash, userscode, must_change_password)
+       VALUES ($1, $2, $3, true)
+       RETURNING id, username, userscode`,
+      [username, passwordHash, userscode]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Create user error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all users (admin only)
+app.get("/admin/users", verifyAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT id, username, userscode, is_active, created_at FROM users"
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Fetch users error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Toggle user status (admin only)
+app.put("/admin/toggle-user/:id", verifyAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await db.query(
+      `UPDATE users 
+       SET is_active = NOT is_active 
+       WHERE id = $1 
+       RETURNING id, username, is_active`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Toggle user error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });

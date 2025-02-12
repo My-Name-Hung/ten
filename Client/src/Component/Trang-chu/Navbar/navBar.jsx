@@ -8,7 +8,7 @@ import {
   NavbarMenuItem,
   NavbarMenuToggle,
 } from "@nextui-org/react";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // React Router for navigation
 import "./navBar.css";
 
@@ -22,15 +22,13 @@ function NavBar() {
 
   // Function to handle logout
   const handleLogout = () => {
-    // Remove token and navigate to login page
-    localStorage.removeItem("token");
-    navigate("/login");
+    localStorage.removeItem("token"); // Xóa token khỏi localStorage
+    navigate("/"); // Điều hướng về trang đăng nhập
   };
 
   // Menu items array
   const menuItems = [
-    { label: "Trang chủ", path: "/" },
-    { label: "Danh sách chương trình", path: "/chuong-trinh" },
+    { label: "Danh sách chương trình", path: "/home" },
     { label: "Đổi mật khẩu", path: "/doi-mat-khau" },
     { label: "Đăng xuất", onClick: handleLogout }, // Logout button
   ];
