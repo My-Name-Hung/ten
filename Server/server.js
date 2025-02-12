@@ -235,32 +235,46 @@ app.post("/admin/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    // Log the received credentials (remove in production)
+    console.log('Login attempt:', { username });
+
     const result = await db.query(
       "SELECT * FROM admin_users WHERE username = $1",
       [username]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ 
+        message: "Tài khoản hoặc mật khẩu không đúng" 
+      });
     }
 
     const admin = result.rows[0];
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
 
     if (!passwordMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ 
+        message: "Tài khoản hoặc mật khẩu không đúng" 
+      });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: admin.id, isAdmin: true },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'your-secret-key', // Make sure you have JWT_SECRET in .env
       { expiresIn: '24h' }
     );
 
-    res.json({ token });
+    // Send success response
+    res.json({
+      success: true,
+      token,
+      message: "Đăng nhập thành công"
+    });
+
   } catch (error) {
     console.error("Admin login error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 });
 
@@ -353,4 +367,9 @@ app.put("/admin/toggle-user/:id", verifyAdmin, async (req, res) => {
     console.error("Toggle user error:", error);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+// Test endpoint
+app.get("/admin/test", (req, res) => {
+  res.json({ message: "Admin API is working" });
 });
