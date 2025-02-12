@@ -13,8 +13,14 @@ const https = require("https");
 app.use(
   cors({
     origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   })
 );
+
+// Make sure this CORS configuration is placed BEFORE your routes
+app.use(express.json());
 
 // Let run server
 const port = process.env.SERVER_PORT || 3002;
