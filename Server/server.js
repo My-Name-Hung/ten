@@ -12,7 +12,7 @@ const https = require("https");
 // Setting crors
 app.use(
   cors({
-    origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
+    origin: ["https://windowaudit-demo.netlify.app","https://ten-server.onrender.com", "http://localhost:5173"],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
