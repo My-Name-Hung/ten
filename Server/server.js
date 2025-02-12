@@ -369,7 +369,7 @@ app.put("/admin/toggle-user/:id", verifyAdmin, async (req, res) => {
   }
 });
 
-// Test endpoint
+// Test endpoint to verify server is running
 app.get("/admin/test", (req, res) => {
   res.json({ message: "Admin API is working" });
 });
