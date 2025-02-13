@@ -4,22 +4,16 @@ const express = require("express");
 const app = express();
 const Client = require("pg").Client;
 const cors = require("cors");
-const jwt = require("jsonwebtoken"); // Add this for JWT
+app.use(express.json());
 const cron = require("node-cron"); // Import the cron library
 const https = require("https");
 
 // Setting crors
 app.use(
   cors({
-    origin: ["https://windowaudit-demo.netlify.app","https://ten-server.onrender.com", "http://localhost:5173"],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
   })
 );
-
-// Make sure this CORS configuration is placed BEFORE your routes
-app.use(express.json());
 
 // Let run server
 const port = process.env.SERVER_PORT || 3002;
@@ -60,116 +54,81 @@ const loginLimiter = rateLimit({
   message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
 
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: "Không tìm thấy token" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: "Token không hợp lệ" });
-  }
-};
-
-// Login endpoint
-app.post("/login", async (req, res) => {
+// Add login endpoint
+app.post("/login", loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    // Tìm người dùng theo username và password
     const result = await db.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
+      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      [username, password]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ 
-        message: "Tài khoản hoặc mật khẩu không đúng" 
-      });
+      return res
+        .status(401)
+        .send({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
 
     const user = result.rows[0];
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
-    if (!passwordMatch) {
-      return res.status(401).json({ 
-        message: "Tài khoản hoặc mật khẩu không đúng" 
+    // Kiểm tra trạng thái "must_change_password"
+    if (user.must_change_password) {
+      return res.status(200).send({
+        success: false,
+        message: "Bạn cần đổi mật khẩu trước khi truy cập hệ thống",
+        mustChangePassword: true,
       });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, userscode: user.userscode },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Cập nhật thời gian đăng nhập lần cuối
+    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
+      user.id,
+    ]);
 
-    // Update last login
-    await db.query(
-      "UPDATE users SET last_login = NOW() WHERE id = $1",
-      [user.id]
-    );
-
-    res.json({
+    res.status(200).send({
       success: true,
-      token,
-      mustChangePassword: user.must_change_password,
-      message: "Đăng nhập thành công"
+      message: "Đăng nhập thành công",
+      mustChangePassword: false,
     });
-
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Lỗi hệ thống" });
+    console.error("Error during login:", error);
+    res.status(500).send({ error: "Lỗi hệ thống" });
   }
 });
 
-// Reset password endpoint
-app.post("/reset-password", verifyToken, async (req, res) => {
+// Đổi mật khẩu
+app.post("/reset-password", async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
 
   try {
+    // Kiểm tra mật khẩu cũ
     const userResult = await db.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
+      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      [username, oldPassword]
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(401).json({ 
-        message: "Người dùng không tồn tại" 
-      });
+      return res
+        .status(401)
+        .send({ message: "Mật khẩu cũ không chính xác. Vui lòng thử lại." });
     }
 
-    const user = userResult.rows[0];
-    const passwordMatch = await bcrypt.compare(oldPassword, user.password_hash);
-
-    if (!passwordMatch) {
-      return res.status(401).json({ 
-        message: "Mật khẩu cũ không chính xác" 
-      });
-    }
-
-    // Hash new password
-    const saltRounds = 10;
-    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    await db.query(
-      `UPDATE users 
-       SET password_hash = $1, 
-           must_change_password = false,
-           updated_at = NOW()
-       WHERE username = $2`,
-      [newPasswordHash, username]
+    // Cập nhật mật khẩu mới
+    const updateResult = await db.query(
+      "UPDATE users SET password = $1, must_change_password = false WHERE username = $2 RETURNING *",
+      [newPassword, username]
     );
 
-    res.json({ message: "Đổi mật khẩu thành công" });
+    if (updateResult.rowCount === 0) {
+      return res.status(400).send({ message: "Đổi mật khẩu thất bại." });
+    }
+
+    res.status(200).send({ message: "Đổi mật khẩu thành công." });
   } catch (error) {
-    console.error("Password reset error:", error);
-    res.status(500).json({ message: "Lỗi hệ thống" });
+    console.error("Error during password reset:", error);
+    res.status(500).send({ error: "Lỗi hệ thống" });
   }
 });
 
@@ -228,7 +187,3 @@ cron.schedule("*/1 * * * *", async () => {
     console.error("Error running cron job:", error);
   }
 });
-
-
-
-
