@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {FaTimes, FaCrown, FaSearch, FaMedal } from "react-icons/fa";
+import {FaTimes, FaCrown, FaSearch, FaMedal, FaSpinner } from "react-icons/fa";
 import { BsTrophyFill, } from "react-icons/bs";
 import Navbar from "../Navbar/navBar";
 import Footer from "../../Footer/Footer";
@@ -14,7 +14,7 @@ function CustomerList() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:3002/store-info");
+        const response = await fetch("https://ten-p521.onrender.com/store-info");
         const data = await response.json();
         setStoreInfo(Array.isArray(data) ? data : []);
         setLoading(false);
@@ -107,8 +107,8 @@ function CustomerList() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex justify-center items-center h-screen">
+        <FaSpinner className="animate-spin text-4xl text-blue-500" />
       </div>
     );
   }

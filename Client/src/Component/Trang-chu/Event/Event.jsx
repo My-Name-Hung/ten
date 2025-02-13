@@ -10,7 +10,7 @@ function Event() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:3002/events");
+        const response = await fetch("https://ten-p521.onrender.com/events");
         const data = await response.json();
         setEvents(data);
         setLoading(false);

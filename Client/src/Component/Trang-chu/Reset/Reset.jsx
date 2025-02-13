@@ -76,7 +76,7 @@ const Reset = () => {
       }
 
       const response = await fetch(
-        "http://localhost:3002/reset-password",
+        "https://ten-p521.onrender.com/reset-password",
         {
           method: "POST",
           headers: {

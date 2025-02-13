@@ -24,12 +24,12 @@ function EventDetail() {
     const fetchEventDetails = async () => {
       try {
         // Fetch event details
-        const eventResponse = await fetch(`http://localhost:3002/events/${eventId}`);
+        const eventResponse = await fetch(`https://ten-p521.onrender.com/events/${eventId}`);
         const eventData = await eventResponse.json();
         setEventDetails(eventData);
 
         // Fetch stores for this event
-        const storesResponse = await fetch(`http://localhost:3002/event-stores/${eventId}`);
+        const storesResponse = await fetch(`https://ten-p521.onrender.com/event-stores/${eventId}`);
         const storesData = await storesResponse.json();
         setStores(storesData);
         setLoading(false);
