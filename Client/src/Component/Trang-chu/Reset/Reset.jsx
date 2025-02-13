@@ -34,51 +34,54 @@ const Reset = () => {
 
     // Validation checks
     if (!oldPassword) {
-      setError("Vui lòng nhập mật khẩu cũ");
+      alert("Vui lòng nhập mật khẩu cũ");
       return;
     }
 
     if (!newPassword) {
-      setError("Vui lòng nhập mật khẩu mới");
+      alert("Vui lòng nhập mật khẩu mới");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
+      alert("Mật khẩu xác nhận không khớp");
       return;
     }
 
     if (newPassword === oldPassword) {
-      setError("Mật khẩu mới không được trùng với mật khẩu cũ");
+      alert("Mật khẩu mới không được trùng với mật khẩu cũ");
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự");
+    if (newPassword.length < 6 || newPassword.length > 10) {
+      alert("Độ dài mật khẩu phải từ 6-10 ký tự");
       return;
     }
 
-    // Password strength validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      setError("Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 số");
+    // Updated password validation to only check for numbers
+    const numberOnlyRegex = /^\d{6,10}$/;
+    if (!numberOnlyRegex.test(newPassword)) {
+      alert("Mật khẩu chỉ được chứa số và độ dài từ 6-10 số");
       return;
     }
 
     try {
       setIsLoading(true);
       const username = localStorage.getItem("username");
+      const token = localStorage.getItem("token");
 
-      if (!username) {
-        throw new Error("Phiên đăng nhập đã hết hạn");
+      if (!token || !username) {
+        alert("Phiên đăng nhập đã hết hạn");
+        return;
       }
 
       const response = await fetch(
-        "https://ten-server.onrender.com/reset-password",
+        "http://localhost:3002/reset-password",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ username, oldPassword, newPassword }),
         }
@@ -94,7 +97,7 @@ const Reset = () => {
       navigate("/home");
     } catch (error) {
       console.error("Error resetting password:", error);
-      setError(error.message || "Có lỗi xảy ra khi đổi mật khẩu");
+      alert(error.message || "Có lỗi xảy ra khi đổi mật khẩu");
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +175,6 @@ const Reset = () => {
               </button>
             </div>
           </div>
-          {error && <p className="errorText">{error}</p>}
           <button type="submit" className="resetButton" disabled={isLoading}>
             {isLoading ? "Đang xử lý..." : "Đổi mật khẩu"}
           </button>

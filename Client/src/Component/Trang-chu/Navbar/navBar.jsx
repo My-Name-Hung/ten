@@ -29,6 +29,7 @@ function NavBar() {
   // Menu items array
   const menuItems = [
     { label: "Danh sách chương trình", path: "/home" },
+    { label: "Danh sách khách hàng", path: "/danh-sach-khach-hang" },
     { label: "Đổi mật khẩu", path: "/doi-mat-khau" },
     { label: "Đăng xuất", onClick: handleLogout }, // Logout button
   ];
@@ -52,7 +53,7 @@ function NavBar() {
           onClick={() => setIsMenuOpen(!isMenuOpen)} // Toggle menu
         />
         <NavbarBrand>
-          <a href="/">
+          <a href="/home">
             <img src={logoCoke} className="h-full w-1/2" alt="Logo Coke" />
           </a>
         </NavbarBrand>
@@ -85,7 +86,7 @@ function NavBar() {
               </Link>
             )}
           </NavbarItem>
-        ))}
+        ))}       
       </NavbarContent>
 
       {/* Mobile Menu */}

@@ -37,27 +37,29 @@ const Login = () => {
     setIsLoading(true);
     setError(null);
 
-    const username = event.target.username.value;
-    const password = event.target.password.value;
-
     try {
-      const response = await fetch("https://ten-server.onrender.com/login", {
+      const response = await fetch("http://localhost:3002/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ 
+          username: event.target.username.value,
+          password: password
+        }),
+        credentials: 'include'
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Đăng nhập thất bại");
+        throw new Error("Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!");
       }
 
-      localStorage.setItem("username", username);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("username", event.target.username.value);
       
       if (data.mustChangePassword) {
         navigate("/doi-mat-khau");
-      } else if (data.success) {
+      } else {
         navigate("/home");
       }
     } catch (error) {
@@ -125,7 +127,7 @@ const Login = () => {
                 </div>
 
                 {error && (
-                  <div className="text-red-500 pt-4 max-w-[20rem]">{error}</div>
+                  <div className="text-white pt-4 max-w-[20rem]">{error}</div>
                 )}
 
                 <button
