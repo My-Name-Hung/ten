@@ -8,10 +8,11 @@ app.use(express.json());
 const cron = require("node-cron"); // Import the cron library
 const https = require("https");
 
-// Setting crors
+// Setting cors
 app.use(
   cors({
     origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
+    credentials: true
   })
 );
 

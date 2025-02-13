@@ -30,8 +30,8 @@ function Event() {
   };
 
   const getEventStatus = (daysRemaining) => {
-    if (daysRemaining > 0) return "Đang hoạt động";
-    if (daysRemaining === 0) return "Đã kết thúc";
+    const days = parseFloat(daysRemaining);
+    if (days > 0) return "Đang hoạt động";
     return "Đã kết thúc";
   };
 
@@ -88,7 +88,7 @@ function Event() {
             </div>
             <div className="mt-4">
               <div className="text-lg font-bold text-red-600">
-                Thời gian còn lại: {event.days_remaining} ngày
+                Thời gian còn lại: {Math.max(0, Math.floor(event.days_remaining))} ngày
               </div>
               <button className="mt-4 px-4 py-2 bg-blue-800 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition flex items-center justify-center">
                 Xem chi tiết

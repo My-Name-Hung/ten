@@ -53,12 +53,11 @@ const Login = () => {
         throw new Error(data.message || "Đăng nhập thất bại");
       }
 
-      localStorage.setItem("token", data.token);
       localStorage.setItem("username", username);
       
       if (data.mustChangePassword) {
         navigate("/doi-mat-khau");
-      } else {
+      } else if (data.success) {
         navigate("/home");
       }
     } catch (error) {
