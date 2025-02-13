@@ -48,12 +48,7 @@ db.connect().then(() => {
 
 // Rate login
 const rateLimit = require("express-rate-limit");
-const {
-  connectionString,
-  password,
-  host,
-  database,
-} = require("pg/lib/defaults");
+const { connectionString, password, host, database } = require("pg/lib/defaults");
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -171,27 +166,6 @@ app.post("/reset-password", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Password reset error:", error);
     res.status(500).json({ message: "Lỗi hệ thống" });
-  }
-});
-
-// Event
-// Add an endpoint to fetch events
-app.get("/events", async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT 
-        eventid, 
-        event_name, 
-        start_time, 
-        end_time,
-        GREATEST(0, DATE_PART('day', end_time - NOW())) AS days_remaining
-      FROM event
-      ORDER BY start_time ASC
-    `);
-    res.status(200).send(result.rows);
-  } catch (error) {
-    console.error("Error fetching events:", error);
-    res.status(500).send({ error: "Failed to fetch events." });
   }
 });
 
