@@ -164,16 +164,8 @@ app.post("/reset-password", verifyToken, async (req, res) => {
 
     res.json({ message: "Đổi mật khẩu thành công" });
   } catch (error) {
-<<<<<<< HEAD
     console.error("Password reset error:", error);
     res.status(500).json({ message: "Lỗi hệ thống" });
-=======
-    console.error("Error during password reset:", error);
-    res.status(500).send({ error: "Lỗi hệ thống" });
-<<<<<<< HEAD
->>>>>>> parent of 75f9be2 (add event show)
-=======
->>>>>>> parent of 75f9be2 (add event show)
   }
 });
 
