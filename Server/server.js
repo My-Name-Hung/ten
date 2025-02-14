@@ -7,33 +7,16 @@ const cors = require("cors");
 app.use(express.json());
 const https = require("https");
 
-// Add cron functionality
-const cron = require('node-cron');
-
 // Setting cors
 app.use(
   cors({
-    origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173", "https://ten-p521.onrender.com"],
+    origin: ["https://windowaudit-demo.netlify.app", "http://localhost:5173"],
     credentials: true
   })
 );
 
-// Add server ping function
-const pingServer = () => {
-  https.get('https://ten-p521.onrender.com', (resp) => {
-    console.log('Server pinged successfully at:', new Date().toISOString());
-  }).on('error', (err) => {
-    console.log('Ping error:', err.message);
-  });
-};
-
-// Schedule cron job to run every 5 minutes
-cron.schedule('*/5 * * * *', () => {
-  pingServer();
-});
-
 // Let run server
-const port = process.env.PORT || 3002;
+const port = process.env.SERVER_PORT || 3002;
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
@@ -286,6 +269,48 @@ app.get("/event-stores/:eventId", async (req, res) => {
   } catch (error) {
     console.error("Error fetching event stores:", error);
     res.status(500).json({ error: "Failed to fetch event stores" });
+  }
+});
+
+// Get store info by ID
+app.get("/store-info/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT store_id, name, address, mobilephone, store_rank FROM info WHERE store_id = $1",
+      [req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy thông tin cửa hàng" });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Lỗi server" });
+  }
+});
+
+// Update store info
+app.put("/store-info/:id", async (req, res) => {
+  const { address, mobilephone, store_rank } = req.body;
+  try {
+    const result = await db.query(
+      `UPDATE info 
+       SET address = $1, mobilephone = $2, store_rank = $3
+       WHERE store_id = $4
+       RETURNING *`,
+      [address, mobilephone, store_rank, req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy cửa hàng" });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Lỗi khi cập nhật thông tin" });
   }
 });
 

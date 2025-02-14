@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Reset.css";
+import NavBar from "../Navbar/navBar";
 
 //  Import icon
 import {
@@ -104,6 +105,8 @@ const Reset = () => {
   };
 
   return (
+    <div>
+      <NavBar />
     <div className="resetPage">
       <div className="resetContainer">
         <h2>Đổi Mật Khẩu</h2>
@@ -180,6 +183,7 @@ const Reset = () => {
           </button>
         </form>
       </div>
+    </div>
     </div>
   );
 };

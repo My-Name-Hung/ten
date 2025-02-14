@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import {FaTimes, FaCrown, FaSearch, FaMedal, FaSpinner } from "react-icons/fa";
+import {FaTimes, FaCrown, FaSearch, FaMedal } from "react-icons/fa";
 import { BsTrophyFill, } from "react-icons/bs";
 import Navbar from "../Navbar/navBar";
 import Footer from "../../Footer/Footer";
+import { useNavigate } from 'react-router-dom';
 
 function CustomerList() {
   const [storeInfo, setStoreInfo] = useState([]);
@@ -10,6 +11,9 @@ function CustomerList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const storesPerPage = 3;
+  const [pageInputValue, setPageInputValue] = useState('');
+  const [showPageInput, setShowPageInput] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -105,10 +109,44 @@ function CustomerList() {
     }
   };
 
+  // Hàm xử lý khi người dùng nhập số trang
+  const handlePageInputChange = (e) => {
+    const value = e.target.value;
+    if (value === '' || /^\d+$/.test(value)) {
+      setPageInputValue(value);
+    }
+  };
+
+  // Hàm xử lý khi người dùng nhấn Enter
+  const handlePageInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      const pageNumber = parseInt(pageInputValue);
+      if (pageNumber && pageNumber > 0 && pageNumber <= totalPages) {
+        setCurrentPage(pageNumber);
+        setShowPageInput(false);
+        setPageInputValue('');
+      }
+    } else if (e.key === 'Escape') {
+      setShowPageInput(false);
+      setPageInputValue('');
+    }
+  };
+
+  // Hàm xử lý khi input mất focus
+  const handlePageInputBlur = () => {
+    setShowPageInput(false);
+    setPageInputValue('');
+  };
+
+  // Thêm hàm xử lý click vào mã cửa hàng
+  const handleStoreClick = (storeId) => {
+    navigate(`/customer-detail/${storeId}`);
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <FaSpinner className="animate-spin text-4xl text-blue-500" />
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -152,104 +190,164 @@ function CustomerList() {
           Hiển thị {Math.min(indexOfLastStore, filteredStores.length)} / {filteredStores.length} cửa hàng
         </div>
 
-        {/* Table Container */}
+        {/* Table Container with always visible scrollbar */}
         <div className="bg-white rounded-lg shadow-md mb-6">
-          {/* Scrollable Container with visible scrollbar */}
-          <div className="overflow-x-auto scrollbar-visible" style={{ 
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'auto',
-            scrollbarColor: '#CBD5E0 #EDF2F7'
-          }}>
-            <div className="inline-block min-w-full">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
-                  <tr>
-                    {/* Sticky ID column */}
-                    <th scope="col" className="sticky left-0 bg-gray-100 px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider shadow-sm z-10">
-                      CODE
-                    </th>
-                    {/* Regular columns */}
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tên</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Chủ liên hệ</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Di Động</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Địa Chỉ</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Quận/Huyện</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tỉnh/TP</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Vùng</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Kênh</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Hạng</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">NPP Code</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tên NPP</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">SR Code</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tên SR</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">TSM Code</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tên TSM</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">ASM Code</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tên ASM</th>
+          <div className="overflow-x-auto scrollbar-always-visible relative" 
+               style={{ 
+                 WebkitOverflowScrolling: 'touch',
+                 scrollbarWidth: 'auto',
+                 scrollbarColor: '#808080 #EDF2F7',
+                 paddingBottom: '12px'
+               }}>
+            <table className="w-full divide-y divide-gray-200 table-auto">
+              <thead className="bg-gray-100">
+                <tr>
+                  {/* Sticky Code column - Auto width */}
+                  <th scope="col" 
+                      className="sticky left-0 z-20 bg-gray-100 px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ 
+                        width: 'auto',
+                        minWidth: '80px',
+                        backgroundColor: '#F3F4F6'
+                      }}>
+                    CODE
+                  </th>
+                  {/* Sticky Name column - Auto width */}
+                  <th scope="col" 
+                      className="sticky left-[80px] z-20 bg-gray-100 px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ 
+                        width: 'auto',
+                        minWidth: '150px',
+                        backgroundColor: '#F3F4F6'
+                      }}>
+                    Tên
+                  </th>
+                  {/* Auto-sized columns */}
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Chủ liên hệ</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Di Động</th>
+                  <th scope="col" className="w-auto min-w-[200px] px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Địa Chỉ</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Quận/Huyện</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tỉnh/TP</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Vùng</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Kênh</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Hạng</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">NPP Code</th>
+                  <th scope="col" className="w-auto min-w-[150px] px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tên NPP</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">SR Code</th>
+                  <th scope="col" className="w-auto min-w-[150px] px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tên SR</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">TSM Code</th>
+                  <th scope="col" className="w-auto min-w-[150px] px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tên TSM</th>
+                  <th scope="col" className="w-auto px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">ASM Code</th>
+                  <th scope="col" className="w-auto min-w-[150px] px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tên ASM</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentStores.map((store) => (
+                  <tr key={store.store_id} className="hover:bg-gray-50">
+                    {/* Sticky Code cell */}
+                    <td 
+                      className="sticky left-0 z-10 bg-white px-4 py-3 text-sm text-blue-600 whitespace-nowrap border-r cursor-pointer hover:text-red-600 transition-colors"
+                      onClick={() => handleStoreClick(store.store_id)}
+                      style={{ backgroundColor: '#FFFFFF' }}
+                    >
+                      {store.store_id}
+                    </td>
+                    {/* Sticky Name cell */}
+                    <td className="sticky left-[80px] z-10 bg-white px-4 py-3 text-sm text-gray-900 whitespace-nowrap border-r border-gray-200"
+                        style={{ backgroundColor: '#FFFFFF' }}>
+                      {store.name}
+                    </td>
+                    {/* Auto-sized cells */}
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.shop_owner}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.mobilephone}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900 max-w-[200px] overflow-hidden text-ellipsis" title={store.address}>
+                        {store.address}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.district}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.province}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.region}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.channel}</td>
+                    <td className="px-4 py-3">{renderRankIcon(store.store_rank)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.npp_code}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900 max-w-[150px] overflow-hidden text-ellipsis" title={store.npp_name}>
+                        {store.npp_name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.sr_code}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900 max-w-[150px] overflow-hidden text-ellipsis" title={store.sr_name}>
+                        {store.sr_name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.tsm_code}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900 max-w-[150px] overflow-hidden text-ellipsis" title={store.tsm_name}>
+                        {store.tsm_name}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.asm_code}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900 max-w-[150px] overflow-hidden text-ellipsis" title={store.asm_name}>
+                        {store.asm_name}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentStores.map((store) => (
-                    <tr key={store.store_id} className="hover:bg-gray-50">
-                      {/* Sticky ID column */}
-                      <td className="sticky left-0 bg-white px-4 py-3 text-sm text-gray-900 whitespace-nowrap shadow-sm z-10">
-                        {store.store_id}
-                      </td>
-                      {/* Regular columns */}
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-red-600 truncate max-w-[200px]" title={store.name}>
-                          {store.name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.shop_owner}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.mobilephone}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={store.address}>
-                          {store.address}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.district}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.province}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.region}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.channel}</td>
-                      <td className="px-4 py-3">
-                        {renderRankIcon(store.store_rank)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.npp_code}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={store.npp_name}>
-                          {store.npp_name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.sr_code}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={store.sr_name}>
-                          {store.sr_name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.tsm_code}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={store.tsm_name}>
-                          {store.tsm_name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{store.asm_code}</td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={store.asm_name}>
-                          {store.asm_name}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          {/* Pagination with mobile optimization */}
-          <div className="border-t border-gray-200">
-            <div className="px-4 py-3 flex items-center justify-between">
-              <div className="flex-1 flex justify-between sm:hidden">
+        {/* Updated Pagination Section */}
+        <div className="border-t border-gray-200">
+          <div className="px-4 py-3 flex items-center justify-between sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                Trước
+              </button>
+              <div className="flex items-center">
+                <span 
+                  className="text-sm text-gray-700 cursor-pointer hover:text-red-600"
+                  onClick={() => setShowPageInput(true)}
+                >
+                  {showPageInput ? (
+                    <input
+                      type="text"
+                      value={pageInputValue}
+                      onChange={handlePageInputChange}
+                      onKeyDown={handlePageInputKeyDown}
+                      onBlur={handlePageInputBlur}
+                      className="w-16 px-2 py-1 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      placeholder={currentPage}
+                      autoFocus
+                    />
+                  ) : (
+                    `Trang ${currentPage}`
+                  )}
+                </span>
+                <span className="text-sm text-gray-700 mx-1">/</span>
+                <span className="text-sm text-gray-700">{totalPages}</span>
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                Sau
+              </button>
+            </div>
+
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+              </div>
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
@@ -257,9 +355,29 @@ function CustomerList() {
                 >
                   Trước
                 </button>
-                <span className="text-sm text-gray-700">
-                  {currentPage} / {totalPages}
-                </span>
+                <div className="flex items-center">
+                  <span 
+                    className="text-sm text-gray-700 cursor-pointer hover:text-red-600"
+                    onClick={() => setShowPageInput(true)}
+                  >
+                    {showPageInput ? (
+                      <input
+                        type="text"
+                        value={pageInputValue}
+                        onChange={handlePageInputChange}
+                        onKeyDown={handlePageInputKeyDown}
+                        onBlur={handlePageInputBlur}
+                        className="w-16 px-2 py-1 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                        placeholder={currentPage}
+                        autoFocus
+                      />
+                    ) : (
+                      `Trang ${currentPage}`
+                    )}
+                  </span>
+                  <span className="text-sm text-gray-700 mx-1">/</span>
+                  <span className="text-sm text-gray-700">{totalPages}</span>
+                </div>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
@@ -267,26 +385,6 @@ function CustomerList() {
                 >
                   Sau
                 </button>
-              </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      Trước
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      Sau
-                    </button>
-                  </nav>
-                </div>
               </div>
             </div>
           </div>
@@ -297,37 +395,68 @@ function CustomerList() {
             Không tìm thấy cửa hàng nào
           </div>
         )}
-      </div>  
+
+        {/* Enhanced styles */}
+        <style jsx>{`
+          /* Force scrollbar to always show on mobile */
+          .scrollbar-always-visible {
+            -ms-overflow-style: -ms-autohiding-scrollbar;
+            scrollbar-width: thin;
+            overflow-x: scroll !important;
+          }
+
+          .scrollbar-always-visible::-webkit-scrollbar {
+            -webkit-appearance: none;
+            height: 8px !important;
+            width: 8px;
+            display: block !important;
+          }
+
+          .scrollbar-always-visible::-webkit-scrollbar-track {
+            background: #EDF2F7;
+            border-radius: 4px;
+          }
+
+          .scrollbar-always-visible::-webkit-scrollbar-thumb {
+            background: #CBD5E0;
+            border-radius: 4px;
+            border: 2px solid #EDF2F7;
+          }
+
+          .scrollbar-always-visible::-webkit-scrollbar-thumb:hover {
+            background: #A0AEC0;
+          }
+
+          /* Mobile specific styles */
+          @media (max-width: 768px) {
+            .scrollbar-always-visible {
+              /* Force hardware acceleration */
+              -webkit-transform: translateZ(0);
+              -moz-transform: translateZ(0);
+              -ms-transform: translateZ(0);
+              -o-transform: translateZ(0);
+              transform: translateZ(0);
+              
+              /* Ensure smooth scrolling */
+              -webkit-overflow-scrolling: touch;
+              scroll-padding-left: 230px;
+              
+              /* Always show scrollbar */
+              overflow-x: scroll !important;
+              scrollbar-width: thin !important;
+            }
+
+            .scrollbar-always-visible::-webkit-scrollbar {
+              display: block !important;
+              height: 8px !important;
+            }
+          }
+        `}</style>
+      </div>
     </div>
     <Footer />
     </div>
   );
 }
-
-// Add custom CSS for scrollbar styling
-const styles = `
-  .scrollbar-visible::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-  }
-
-  .scrollbar-visible::-webkit-scrollbar-track {
-    background: #EDF2F7;
-  }
-
-  .scrollbar-visible::-webkit-scrollbar-thumb {
-    background: #CBD5E0;
-    border-radius: 4px;
-  }
-
-  .scrollbar-visible::-webkit-scrollbar-thumb:hover {
-    background: #A0AEC0;
-  }
-`;
-
-// Add styles to head
-const styleSheet = document.createElement("style");
-styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);
 
 export default CustomerList; 

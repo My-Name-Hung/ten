@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import "./login.css";
 import { useNavigate } from "react-router-dom";
+import NavigationPopup from '../Popup/NavigationPopup';
 
 // import component
 
@@ -27,6 +28,7 @@ const Login = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
 
   const togglePasswordVisibility = () => {
     setPasswordVisible(!passwordVisible);
@@ -48,19 +50,18 @@ const Login = () => {
         credentials: 'include'
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         throw new Error("Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!");
       }
 
+      const data = await response.json();
       localStorage.setItem("token", data.token);
       localStorage.setItem("username", event.target.username.value);
       
       if (data.mustChangePassword) {
         navigate("/doi-mat-khau");
       } else {
-        navigate("/home");
+        setShowPopup(true);
       }
     } catch (error) {
       setError(error.message);
@@ -70,7 +71,7 @@ const Login = () => {
   };
 
   return (
-    <div>
+    <>
       <div className="loginPage flex">
         <div className="container bg-red-600 flex">
           <div className="videoDiv">
@@ -181,7 +182,12 @@ const Login = () => {
           </a>
         </div>
       </footer>
-    </div>
+
+      <NavigationPopup 
+        isOpen={showPopup} 
+        onClose={() => setShowPopup(false)}
+      />
+    </>
   );
 };
 
