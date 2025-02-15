@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { FaCheck, FaEdit, FaMedal, FaSave, FaTimes } from "react-icons/fa";
+import {
+  FaCheck,
+  FaEdit,
+  FaMedal,
+  FaMinus,
+  FaPlus,
+  FaSave,
+  FaTimes,
+} from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import Footer from "../../Footer/Footer";
 import Navbar from "../Navbar/navBar";
@@ -30,9 +38,16 @@ function CustomerDetail() {
     message: "",
   });
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [assetData, setAssetData] = useState([]);
+  const [expandedAssets, setExpandedAssets] = useState({});
+  const [storeEvents, setStoreEvents] = useState([]);
 
   useEffect(() => {
     fetchStoreData();
+    if (id) {
+      fetchAssetData();
+      fetchStoreEvents();
+    }
   }, [id]);
 
   const fetchStoreData = async () => {
@@ -53,6 +68,42 @@ function CustomerDetail() {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAssetData = async () => {
+    try {
+      const response = await fetch(
+        `https://ten-p521.onrender.com/store-assets/${id}`
+      );
+      if (!response.ok) throw new Error("Không thể tải thông tin tài sản");
+      const data = await response.json();
+
+      // Nhóm tài sản theo loại đối tượng
+      const groupedAssets = data.reduce((acc, asset) => {
+        if (!acc[asset.loaidoituong]) {
+          acc[asset.loaidoituong] = [];
+        }
+        acc[asset.loaidoituong].push(asset);
+        return acc;
+      }, {});
+
+      setAssetData(groupedAssets);
+    } catch (error) {
+      console.error("Error fetching asset data:", error);
+    }
+  };
+
+  const fetchStoreEvents = async () => {
+    try {
+      const response = await fetch(
+        `https://ten-p521.onrender.com/store-events/${id}`
+      );
+      if (!response.ok) throw new Error("Không thể tải thông tin sự kiện");
+      const data = await response.json();
+      setStoreEvents(data);
+    } catch (error) {
+      console.error("Error fetching store events:", error);
     }
   };
 
@@ -165,6 +216,31 @@ function CustomerDetail() {
       default:
         return <FaMedal className="text-2xl text-gray-300" />;
     }
+  };
+
+  const toggleAssetType = (assetType) => {
+    setExpandedAssets((prev) => ({
+      ...prev,
+      [assetType]: !prev[assetType],
+    }));
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "đạt":
+        return "bg-green-100 text-green-800";
+      case "không đạt":
+        return "bg-red-100 text-red-800";
+      case "đang chờ duyệt":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-blue-100 text-blue-800";
+    }
+  };
+
+  const handleEventClick = (eventId) => {
+    // Navigate to EventDetail with store filter
+    navigate(`/event-detail/${eventId}?store=${id}`);
   };
 
   if (loading)
@@ -479,6 +555,191 @@ function CustomerDetail() {
                           </span>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Thông tin tài sản section */}
+                  <div className="pt-6 border-t border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Thông tin tài sản
+                    </h3>
+                    <div className="space-y-4">
+                      {Object.entries(assetData).map(([assetType, assets]) => (
+                        <div
+                          key={assetType}
+                          className="bg-gray-50 rounded-lg overflow-hidden"
+                        >
+                          <div
+                            className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={() => toggleAssetType(assetType)}
+                          >
+                            <h4 className="text-base font-medium text-gray-800">
+                              {assetType}
+                            </h4>
+                            <button className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                              {expandedAssets[assetType] ? (
+                                <FaMinus className="text-gray-600" />
+                              ) : (
+                                <FaPlus className="text-gray-600" />
+                              )}
+                            </button>
+                          </div>
+
+                          {expandedAssets[assetType] && (
+                            <div className="px-4 pb-4">
+                              {assets.map((asset) => (
+                                <div
+                                  key={asset.mataisan}
+                                  className="mt-3 grid grid-cols-2 gap-4 text-sm"
+                                >
+                                  <div className="space-y-2">
+                                    <p>
+                                      <span className="font-medium text-gray-700">
+                                        Mã tài sản:
+                                      </span>{" "}
+                                      <span className="text-gray-900">
+                                        {asset.mataisan}
+                                      </span>
+                                    </p>
+                                    <p>
+                                      <span className="font-medium text-gray-700">
+                                        Seri:
+                                      </span>{" "}
+                                      <span className="text-gray-900">
+                                        {asset.seri}
+                                      </span>
+                                    </p>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p>
+                                      <span className="font-medium text-gray-700">
+                                        Loại:
+                                      </span>{" "}
+                                      <span className="text-gray-900">
+                                        {asset.loai}
+                                      </span>
+                                    </p>
+                                    <p>
+                                      <span className="font-medium text-gray-700">
+                                        Tình trạng:
+                                      </span>{" "}
+                                      <span
+                                        className={`
+                                      ${
+                                        asset.tinhtrang.toLowerCase() === "còn"
+                                          ? "text-green-600"
+                                          : ""
+                                      }
+                                      ${
+                                        asset.tinhtrang.toLowerCase() === "mất"
+                                          ? "text-red-600"
+                                          : ""
+                                      }
+                                      ${
+                                        asset.tinhtrang.toLowerCase() ===
+                                        "di dời"
+                                          ? "text-yellow-600"
+                                          : ""
+                                      }
+                                      ${
+                                        asset.tinhtrang
+                                          .toLowerCase()
+                                          .includes("sửa")
+                                          ? "text-orange-600"
+                                          : ""
+                                      }
+                                    `}
+                                      >
+                                        {asset.tinhtrang}
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Event Section */}
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <h2 className="text-xl font-semibold text-blue-900 mb-6">
+                      Chương trình tham gia
+                    </h2>
+
+                    <div className="grid gap-4">
+                      {storeEvents.length > 0 ? (
+                        storeEvents.map((event) => (
+                          <div
+                            key={event.eventid}
+                            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => handleEventClick(event.eventid)}
+                          >
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                              {/* Event Name */}
+                              <div className="flex-1">
+                                <h3 className="text-lg font-medium text-gray-900 hover:text-blue-600 transition-colors">
+                                  {event.event_name}
+                                </h3>
+                              </div>
+
+                              {/* Status and Remaining Time */}
+                              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                {/* Status Badge */}
+                                <span
+                                  className={`
+                                inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                                ${getStatusColor(event.status)}
+                              `}
+                                >
+                                  {event.status}
+                                </span>
+
+                                {/* Remaining Time */}
+                                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                  <span>
+                                    {event.days_remaining > 0
+                                      ? `Còn ${event.days_remaining} ngày`
+                                      : "Đã kết thúc"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Event Time Range */}
+                            <div className="mt-2 text-sm text-gray-500">
+                              {new Date(event.start_time).toLocaleDateString(
+                                "vi-VN"
+                              )}
+                              {" - "}
+                              {new Date(event.end_time).toLocaleDateString(
+                                "vi-VN"
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 bg-gray-50 rounded-lg">
+                          <p className="text-gray-500">
+                            Cửa hàng chưa tham gia sự kiện nào
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

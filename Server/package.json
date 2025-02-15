@@ -19,6 +19,7 @@
     "https": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2",
     "pg": "^8.13.1"
   },
   "devDependencies": {

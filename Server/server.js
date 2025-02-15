@@ -6,6 +6,7 @@ const Client = require("pg").Client;
 const cors = require("cors");
 app.use(express.json());
 const https = require("https");
+const serverPinger = require('./utils/cronJobs');
 
 // Setting cors
 app.use(
@@ -20,6 +21,7 @@ const port = process.env.SERVER_PORT || 3002;
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  serverPinger.start();
 });
 
 // Create config database
@@ -240,7 +242,7 @@ app.get("/events/:eventId", async (req, res) => {
   }
 });
 
-// Get stores for specific event with status
+// Lấy thông tin cửa hàng cho sự kiện cụ thể (Updated)
 app.get("/event-stores/:eventId", async (req, res) => {
   try {
     const result = await db.query(`
@@ -253,9 +255,10 @@ app.get("/event-stores/:eventId", async (req, res) => {
         s.status_type,
         COALESCE(s.status_type, 'Đang chờ duyệt') as status
       FROM info i
+      INNER JOIN store_events se ON i.store_id = se.store_id
       LEFT JOIN store_images si ON i.store_id = si.store_id
       LEFT JOIN status s ON i.store_id = s.store_id
-      WHERE i.eventid = $1
+      WHERE se.eventid = $1
       ORDER BY i.store_id ASC
     `, [req.params.eventId]);
     
@@ -570,5 +573,139 @@ app.delete("/store-images/:storeId/:imageId", async (req, res) => {
       error: "Lỗi khi xóa hình ảnh" 
     });
   }
+});
+
+// STORE ASSETS ENDPOINTS
+
+// Lấy thông tin tài sản của cửa hàng
+app.get("/store-assets/:storeId", async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT * FROM taisan WHERE store_id = $1 ORDER BY loaidoituong, mataisan`,
+      [req.params.storeId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching store assets:", error);
+    res.status(500).json({ error: "Lỗi khi lấy thông tin tài sản" });
+  }
+});
+
+// API mới: Thêm cửa hàng vào sự kiện
+app.post("/event-stores", async (req, res) => {
+  const { store_id, eventid } = req.body;
+  try {
+    const result = await db.query(
+      `INSERT INTO store_events (store_id, eventid)
+       VALUES ($1, $2)
+       ON CONFLICT (store_id, eventid) DO NOTHING
+       RETURNING *`,
+      [store_id, eventid]
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: "Đã thêm cửa hàng vào sự kiện",
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Error adding store to event:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Lỗi khi thêm cửa hàng vào sự kiện" 
+    });
+  }
+});
+
+// API mới: Xóa cửa hàng khỏi sự kiện
+app.delete("/event-stores/:eventId/:storeId", async (req, res) => {
+  try {
+    const result = await db.query(
+      `DELETE FROM store_events 
+       WHERE eventid = $1 AND store_id = $2
+       RETURNING *`,
+      [req.params.eventId, req.params.storeId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Không tìm thấy cửa hàng trong sự kiện này"
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: "Đã xóa cửa hàng khỏi sự kiện"
+    });
+  } catch (error) {
+    console.error("Error removing store from event:", error);
+    res.status(500).json({
+      success: false,
+      error: "Lỗi khi xóa cửa hàng khỏi sự kiện"
+    });
+  }
+});
+
+// Lấy danh sách sự kiện của một cửa hàng (Updated)
+app.get("/store-events/:storeId", async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        e.eventid,
+        e.event_name,
+        e.start_time,
+        e.end_time,
+        GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
+        ses.status_type as status,
+        ses.updated_at as status_updated_at
+      FROM event e
+      INNER JOIN store_events se ON e.eventid = se.eventid
+      LEFT JOIN store_event_status ses ON se.store_id = ses.store_id 
+        AND e.eventid = ses.eventid
+      WHERE se.store_id = $1
+      ORDER BY e.start_time DESC
+    `, [req.params.storeId]);
+    
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error fetching store events:", error);
+    res.status(500).json({ error: "Lỗi khi lấy danh sách sự kiện của cửa hàng" });
+  }
+});
+
+// API cập nhật trạng thái của cửa hàng trong sự kiện
+app.put("/store-event-status", async (req, res) => {
+  const { store_id, eventid, status_type, updated_by } = req.body;
+  
+  try {
+    const result = await db.query(`
+      INSERT INTO store_event_status (store_id, eventid, status_type, updated_by)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (store_id, eventid) 
+      DO UPDATE SET 
+        status_type = $3,
+        updated_by = $4,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [store_id, eventid, status_type, updated_by]);
+
+    res.json({
+      success: true,
+      message: "Cập nhật trạng thái thành công",
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Error updating store event status:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Lỗi khi cập nhật trạng thái" 
+    });
+  }
+});
+
+// Optional: API endpoint để kiểm tra trạng thái ping
+app.get('/ping-status', (req, res) => {
+  res.json(serverPinger.getStatus());
 });
 
