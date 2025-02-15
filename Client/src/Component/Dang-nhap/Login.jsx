@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import "./login.css";
 import { useNavigate } from "react-router-dom";
-import NavigationPopup from '../Popup/NavigationPopup';
+import NavigationPopup from "../Popup/NavigationPopup";
+import "./login.css";
 
 // import component
 
@@ -9,18 +9,17 @@ import logoTen from "../../assets/Footer/logo-ten.jpg";
 import logo1 from "../../assets/Footer/logo1.png";
 import logoText from "../../assets/Footer/logotext.png";
 // import assets
-import video from "../../assets/AboutUs/video.mp4"
 import logo from "../../assets/AboutUs/Logo_Coke.png";
+import video from "../../assets/AboutUs/video.mp4";
 
 // import icon
-import { FaUserShield } from "react-icons/fa";
-import { BsFillShieldLockFill } from "react-icons/bs";
 import {
-  AiOutlineSwapRight,
-  AiOutlineEyeInvisible,
   AiOutlineEye,
+  AiOutlineEyeInvisible,
+  AiOutlineSwapRight,
 } from "react-icons/ai";
-
+import { BsFillShieldLockFill } from "react-icons/bs";
+import { FaUserShield } from "react-icons/fa";
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -43,11 +42,11 @@ const Login = () => {
       const response = await fetch("https://ten-p521.onrender.com/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           username: event.target.username.value,
-          password: password
+          password: password,
         }),
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -57,7 +56,7 @@ const Login = () => {
       const data = await response.json();
       localStorage.setItem("token", data.token);
       localStorage.setItem("username", event.target.username.value);
-      
+
       if (data.mustChangePassword) {
         navigate("/doi-mat-khau");
       } else {
@@ -147,7 +146,11 @@ const Login = () => {
                 </button>
 
                 <span className="forgotPassword">
-                  <a> Quên mật khẩu? <br/>Liên hệ MKT hoặc TSM để được hỗ trợ </a>
+                  <a>
+                    {" "}
+                    Quên mật khẩu? <br />
+                    Liên hệ MKT hoặc TSM để được hỗ trợ{" "}
+                  </a>
                 </span>
               </div>
             </form>
@@ -183,10 +186,7 @@ const Login = () => {
         </div>
       </footer>
 
-      <NavigationPopup 
-        isOpen={showPopup} 
-        onClose={() => setShowPopup(false)}
-      />
+      <NavigationPopup isOpen={showPopup} onClose={() => setShowPopup(false)} />
     </>
   );
 };

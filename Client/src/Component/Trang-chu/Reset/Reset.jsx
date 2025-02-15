@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Reset.css";
 import NavBar from "../Navbar/navBar";
+import "./Reset.css";
 
 //  Import icon
-import {
-  AiOutlineEyeInvisible,
-  AiOutlineEye,
-} from "react-icons/ai";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 const Reset = () => {
   const [oldPassword, setOldPassword] = useState("");
@@ -107,83 +104,91 @@ const Reset = () => {
   return (
     <div>
       <NavBar />
-    <div className="resetPage">
-      <div className="resetContainer">
-        <h2>Đổi Mật Khẩu</h2>
-        <form onSubmit={handleSubmit} className="resetForm">
-          <div className="inputGroup">
-            <label htmlFor="oldPassword">Mật khẩu cũ</label>
-            <div className="passwordWrapper">
-              <input
-                type={showOldPassword ? "text" : "password"}
-                id="oldPassword"
-                placeholder="Nhập mật khẩu cũ"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                className="togglePassword"
-                onClick={() => setShowOldPassword((prev) => !prev)}
-              >
-                {showOldPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
-              </button>
+      <div className="resetPage">
+        <div className="resetContainer">
+          <h2>Đổi Mật Khẩu</h2>
+          <form onSubmit={handleSubmit} className="resetForm">
+            <div className="inputGroup">
+              <label htmlFor="oldPassword">Mật khẩu cũ</label>
+              <div className="passwordWrapper">
+                <input
+                  type={showOldPassword ? "text" : "password"}
+                  id="oldPassword"
+                  placeholder="Nhập mật khẩu cũ"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className="togglePassword"
+                  onClick={() => setShowOldPassword((prev) => !prev)}
+                >
+                  {showOldPassword ? (
+                    <AiOutlineEyeInvisible />
+                  ) : (
+                    <AiOutlineEye />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="inputGroup">
-            <label htmlFor="newPassword">Mật khẩu mới</label>
-            <div className="passwordWrapper">
-              <input
-                type={showNewPassword ? "text" : "password"}
-                id="newPassword"
-                placeholder="Nhập mật khẩu mới"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                className="togglePassword"
-                onClick={() => setShowNewPassword((prev) => !prev)}
-              >
-                {showNewPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
-              </button>
+            <div className="inputGroup">
+              <label htmlFor="newPassword">Mật khẩu mới</label>
+              <div className="passwordWrapper">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  id="newPassword"
+                  placeholder="Nhập mật khẩu mới"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className="togglePassword"
+                  onClick={() => setShowNewPassword((prev) => !prev)}
+                >
+                  {showNewPassword ? (
+                    <AiOutlineEyeInvisible />
+                  ) : (
+                    <AiOutlineEye />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="inputGroup">
-            <label htmlFor="confirmPassword">Xác nhận mật khẩu mới</label>
-            <div className="passwordWrapper">
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                id="confirmPassword"
-                placeholder="Nhập lại mật khẩu mới"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                className="togglePassword"
-                onClick={() => setShowConfirmPassword((prev) => !prev)}
-              >
-                {showConfirmPassword ? (
-                  <AiOutlineEyeInvisible />
-                ) : (
-                  <AiOutlineEye />
-                )}
-              </button>
+            <div className="inputGroup">
+              <label htmlFor="confirmPassword">Xác nhận mật khẩu mới</label>
+              <div className="passwordWrapper">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  id="confirmPassword"
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className="togglePassword"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                >
+                  {showConfirmPassword ? (
+                    <AiOutlineEyeInvisible />
+                  ) : (
+                    <AiOutlineEye />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-          <button type="submit" className="resetButton" disabled={isLoading}>
-            {isLoading ? "Đang xử lý..." : "Đổi mật khẩu"}
-          </button>
-        </form>
+            <button type="submit" className="resetButton" disabled={isLoading}>
+              {isLoading ? "Đang xử lý..." : "Đổi mật khẩu"}
+            </button>
+          </form>
+        </div>
       </div>
-    </div>
     </div>
   );
 };

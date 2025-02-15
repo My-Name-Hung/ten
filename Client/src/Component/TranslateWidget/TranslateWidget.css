@@ -1,0 +1,108 @@
+.gtranslate_wrapper {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 999999;
+}
+
+/* Mobile Styling */
+@media (max-width: 768px) {
+  .gtranslate_wrapper {
+    top: 15px;
+    right: 15px;
+  }
+
+  /* Tùy chỉnh globe icon cho mobile */
+  .gt_globe {
+    background: rgba(255, 255, 255, 0.95) !important; /* Nền trắng trong suốt */
+    border-radius: 50% !important;
+    padding: 8px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    transition: all 0.3s ease !important;
+  }
+
+  .gt_globe:hover, .gt_globe:active {
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+    background: rgba(255, 255, 255, 1) !important;
+  }
+
+  /* Tùy chỉnh dropdown menu cho mobile */
+  .gt_float_switcher {
+    margin-top: 5px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  .gt_float_switcher .gt_option {
+    padding: 12px 16px !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .gt_float_switcher .gt_option:hover {
+    background: rgba(102, 170, 255, 0.1) !important;
+  }
+
+  .gt_float_switcher .gt_option:active {
+    background: rgba(102, 170, 255, 0.2) !important;
+  }
+
+  /* Animation cho dropdown */
+  @keyframes slideInMobile {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .gt_float_switcher {
+    animation: slideInMobile 0.25s ease-out !important;
+  }
+}
+
+/* Tablet Styling */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .gtranslate_wrapper {
+    top: 18px;
+    right: 18px;
+  }
+
+  .gt_globe {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 50% !important;
+    padding: 6px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .gt_globe {
+    background: rgba(30, 41, 59, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .gt_float_switcher {
+    background: rgba(30, 41, 59, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .gt_float_switcher .gt_option {
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  .gt_float_switcher .gt_option:hover {
+    background: rgba(102, 170, 255, 0.15) !important;
+  }
+} 
