@@ -157,7 +157,11 @@ function EventDetail() {
                             SĐT: {store.mobilephone}
                           </p>
                           <p className="text-sm text-gray-600 truncate">
-                            {store.address}
+                            <div className="max-w-xs lg:max-w-md">
+                              <p className="text-gray-900 break-words whitespace-pre-line leading-relaxed">
+                                {store.address}
+                              </p>
+                            </div>
                           </p>
                         </div>
                       </div>
@@ -201,7 +205,11 @@ function EventDetail() {
                             className="text-sm text-gray-600 line-clamp-2"
                             title={store.address}
                           >
-                            Địa chỉ: {store.address}
+                            <div className="max-w-xs lg:max-w-md">
+                              <p className="text-gray-900 break-words whitespace-pre-line leading-relaxed">
+                                Địa chỉ: {store.address}
+                              </p>
+                            </div>
                           </p>
                         </div>
                       </div>

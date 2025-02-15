@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { FaCheck, FaEdit, FaMedal, FaSave, FaTimes } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
-import AddressForm from "../../AddressForm/AddressForm";
 import Footer from "../../Footer/Footer";
-import StoreImages from "../../StoreImages/StoreImages";
 import Navbar from "../Navbar/navBar";
+import AddressForm from "./AddressForm/AddressForm";
 import "./CustomerDetail.css";
+import StoreImages from "./StoreImages/StoreImages";
+import StoreMap from "./StoreMap/StoreMap";
 
 function CustomerDetail() {
   const { id } = useParams();
@@ -205,150 +206,280 @@ function CustomerDetail() {
         )}
 
         <div className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          {/* Store Header */}
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl md:text-4xl">
-              {storeData?.name}
-            </h1>
-            <p className="mt-2 text-sm text-gray-600 sm:text-base">
-              Mã cửa hàng: {storeData?.store_id}
-            </p>
-          </div>
+          {/* Store Header with Channel Info */}
+          <div className="mb-8">
+            <div className="text-center mb-4">
+              <h1 className="text-2xl font-bold text-red-700 sm:text-3xl md:text-4xl">
+                {storeData?.name}
+              </h1>
+            </div>
 
-          {/* Store Images Card */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-6 sm:p-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                Hình ảnh cửa hàng
-              </h2>
-              <StoreImages storeId={id} />
+            {/* Store ID and Channel Info Card */}
+            <div className="bg-white rounded-lg shadow-sm p-4 max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Store ID */}
+                <div className="flex flex-col items-center sm:items-start space-y-1">
+                  <span className="text-sm text-gray-500">Mã cửa hàng</span>
+                  <span className="text-lg font-medium text-gray-900">
+                    {storeData?.store_id}
+                  </span>
+                </div>
+
+                {/* Channel Info */}
+                <div className="flex flex-col items-center sm:items-start space-y-1">
+                  <span className="text-sm text-gray-500">Kênh</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg font-medium text-gray-900">
+                      {storeData?.channel || "Chưa có thông tin"}
+                    </span>
+                    {storeData?.channel_fk && (
+                      <>
+                        <span className="text-gray-900">-</span>
+                        <span className="text-lg font-medium text-gray-900">
+                          {storeData.channel_fk}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+            {/* Right Column: Images and Map */}
+            <div className="space-y-8">
+              {/* Store Images Card */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6 sm:p-8">
+                  <h2 className="text-xl font-semibold text-blue-900 mb-6">
+                    Hình ảnh cửa hàng
+                  </h2>
+                  <StoreImages storeId={id} />
+                </div>
+              </div>
+
+              {/* Store Map Card */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6 sm:p-8">
+                  <h2 className="text-xl font-semibold text-blue-900 mb-6">
+                    Vị trí cửa hàng
+                  </h2>
+                  <StoreMap storeData={storeData} />
+                </div>
+              </div>
+            </div>
+
             {/* Store Information Card */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-6 sm:p-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                <h2 className="text-xl font-semibold text-blue-900 mb-6">
                   Thông tin chung
                 </h2>
 
                 <div className="space-y-6">
-                  {/* Địa chỉ */}
-                  <div className="group relative">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Địa chỉ
-                      </label>
-                      <button
-                        onClick={() => {
-                          toggleEdit("address");
-                          setShowAddressForm(true);
-                        }}
-                        className={`p-2 rounded-full transition-colors ${
-                          editingFields.address
-                            ? "bg-green-100 text-green-600"
-                            : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                        }`}
-                      >
-                        {editingFields.address ? <FaCheck /> : <FaEdit />}
-                      </button>
-                    </div>
-                    {!editingFields.address ? (
-                      <p className="text-gray-900 py-2">{storeData?.address}</p>
-                    ) : (
-                      <>
-                        <p className="text-gray-900 py-2">
-                          {editedData.address}
-                        </p>
-                        {showAddressForm && (
-                          <AddressForm
-                            region={storeData?.region}
-                            currentAddress={editedData.address}
-                            onAddressChange={(newAddress) => {
-                              handleChange("address", newAddress);
-                              setShowAddressForm(false);
+                  {/* Thông tin liên hệ */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Địa chỉ */}
+                    <div className="col-span-2">
+                      <div className="group relative">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Địa chỉ
+                          </label>
+                          <button
+                            onClick={() => {
+                              toggleEdit("address");
+                              setShowAddressForm(true);
                             }}
-                            onCancel={() => setShowAddressForm(false)}
-                          />
+                            className={`p-2 rounded-full transition-colors ${
+                              editingFields.address
+                                ? "bg-green-100 text-green-600"
+                                : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                            }`}
+                          >
+                            {editingFields.address ? <FaCheck /> : <FaEdit />}
+                          </button>
+                        </div>
+                        {!editingFields.address ? (
+                          <p className="text-gray-900 py-2">
+                            {storeData?.address}
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-gray-900 py-2">
+                              {editedData.address}
+                            </p>
+                            {showAddressForm && (
+                              <AddressForm
+                                region={storeData?.region}
+                                currentAddress={editedData.address}
+                                onAddressChange={(newAddress) => {
+                                  handleChange("address", newAddress);
+                                  setShowAddressForm(false);
+                                }}
+                                onCancel={() => setShowAddressForm(false)}
+                              />
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Số điện thoại */}
-                  <div className="group relative">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Số điện thoại
-                      </label>
-                      <button
-                        onClick={() => toggleEdit("mobilephone")}
-                        className={`p-2 rounded-full transition-colors ${
-                          editingFields.mobilephone
-                            ? "bg-green-100 text-green-600"
-                            : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                        }`}
-                      >
-                        {editingFields.mobilephone ? <FaCheck /> : <FaEdit />}
-                      </button>
-                    </div>
-                    {editingFields.mobilephone ? (
-                      <input
-                        type="text"
-                        value={editedData.mobilephone}
-                        onChange={(e) =>
-                          handleChange("mobilephone", e.target.value)
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                        placeholder="Nhập số điện thoại..."
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-2">
-                        {storeData?.mobilephone}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Hạng */}
-                  <div className="group relative">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Hạng
-                      </label>
-                      <button
-                        onClick={() => toggleEdit("store_rank")}
-                        className={`p-2 rounded-full transition-colors ${
-                          editingFields.store_rank
-                            ? "bg-green-100 text-green-600"
-                            : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                        }`}
-                      >
-                        {editingFields.store_rank ? <FaCheck /> : <FaEdit />}
-                      </button>
-                    </div>
-                    {editingFields.store_rank ? (
-                      <select
-                        value={editedData.store_rank}
-                        onChange={(e) =>
-                          handleChange("store_rank", e.target.value)
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                      >
-                        <option value="">Chọn hạng</option>
-                        <option value="Vàng">Vàng</option>
-                        <option value="Bạc">Bạc</option>
-                        <option value="Đồng">Đồng</option>
-                      </select>
-                    ) : (
-                      <div className="flex items-center py-2">
-                        {renderRankIcon(storeData?.store_rank)}
-                        <span className="ml-2 text-gray-900">
-                          {storeData?.store_rank || "Chưa xếp hạng"}
-                        </span>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Số điện thoại */}
+                    <div className="col-span-2 md:col-span-1">
+                      <div className="group relative">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Số điện thoại
+                          </label>
+                          <button
+                            onClick={() => toggleEdit("mobilephone")}
+                            className={`p-2 rounded-full transition-colors ${
+                              editingFields.mobilephone
+                                ? "bg-green-100 text-green-600"
+                                : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                            }`}
+                          >
+                            {editingFields.mobilephone ? (
+                              <FaCheck />
+                            ) : (
+                              <FaEdit />
+                            )}
+                          </button>
+                        </div>
+                        {editingFields.mobilephone ? (
+                          <input
+                            type="text"
+                            value={editedData.mobilephone}
+                            onChange={(e) =>
+                              handleChange("mobilephone", e.target.value)
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                            placeholder="Nhập số điện thoại..."
+                          />
+                        ) : (
+                          <p className="text-gray-900 py-2">
+                            {storeData?.mobilephone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hạng */}
+                    <div className="col-span-2 md:col-span-1">
+                      <div className="group relative">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Hạng
+                          </label>
+                          <button
+                            onClick={() => toggleEdit("store_rank")}
+                            className={`p-2 rounded-full transition-colors ${
+                              editingFields.store_rank
+                                ? "bg-green-100 text-green-600"
+                                : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                            }`}
+                          >
+                            {editingFields.store_rank ? (
+                              <FaCheck />
+                            ) : (
+                              <FaEdit />
+                            )}
+                          </button>
+                        </div>
+                        {editingFields.store_rank ? (
+                          <select
+                            value={editedData.store_rank}
+                            onChange={(e) =>
+                              handleChange("store_rank", e.target.value)
+                            }
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                          >
+                            <option value="">Chọn hạng</option>
+                            <option value="Vàng">Vàng</option>
+                            <option value="Bạc">Bạc</option>
+                            <option value="Đồng">Đồng</option>
+                          </select>
+                        ) : (
+                          <div className="flex items-center py-2">
+                            {renderRankIcon(storeData?.store_rank)}
+                            <span className="ml-2 text-gray-900">
+                              {storeData?.store_rank || "Chưa xếp hạng"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Thông tin quản lý - New Section */}
+                  <div className="pt-6 border-t border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Thông tin quản lý
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* NPP Info */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">
+                            NPP:{" "}
+                          </span>
+                          <span className="text-gray-900">
+                            {storeData?.npp_name}
+                            <span className="text-gray-500 ml-1">
+                              [{storeData?.npp_code}]
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* ASM Info */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">
+                            ASM:{" "}
+                          </span>
+                          <span className="text-gray-900">
+                            {storeData?.asm_name}
+                            <span className="text-gray-500 ml-1">
+                              [{storeData?.asm_code}]
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* TSM Info */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">
+                            TSM:{" "}
+                          </span>
+                          <span className="text-gray-900">
+                            {storeData?.tsm_name}
+                            <span className="text-gray-500 ml-1">
+                              [{storeData?.tsm_code}]
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* SR Info */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">
+                            SR:{" "}
+                          </span>
+                          <span className="text-gray-900">
+                            {storeData?.sr_name}
+                            <span className="text-gray-500 ml-1">
+                              [{storeData?.sr_code}]
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -10,12 +10,8 @@ const https = require("https");
 // Setting cors
 app.use(
   cors({
-    origin: [
-      "https://windowaudit-demo.netlify.app",
-      "https://ten-p521.onrender.com",
-      "http://localhost:5173",
-    ],
-    credentials: true,
+    origin: ["https://windowaudit-demo.netlify.app", "https://ten-p521.onrender.com", "http://localhost:5173"],
+    credentials: true
   })
 );
 
@@ -64,9 +60,9 @@ app.post("/login", loginLimiter, async (req, res) => {
 
   // Validate input
   if (!username || !password) {
-    return res.status(400).json({
+    return res.status(400).json({ 
       success: false,
-      message: "Username và password là bắt buộc",
+      message: "Username và password là bắt buộc" 
     });
   }
 
@@ -84,7 +80,7 @@ app.post("/login", loginLimiter, async (req, res) => {
       console.log("No user found with provided credentials");
       return res.status(401).json({
         success: false,
-        message: "Tài khoản hoặc mật khẩu không đúng",
+        message: "Tài khoản hoặc mật khẩu không đúng"
       });
     }
 
@@ -101,9 +97,10 @@ app.post("/login", loginLimiter, async (req, res) => {
     }
 
     // Cập nhật thời gian đăng nhập lần cuối
-    await db.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
-      user.id,
-    ]);
+    await db.query(
+      "UPDATE users SET last_login = NOW() WHERE id = $1",
+      [user.id]
+    );
 
     // Tạo và gửi token response
     res.status(200).json({
@@ -111,14 +108,15 @@ app.post("/login", loginLimiter, async (req, res) => {
       message: "Đăng nhập thành công",
       mustChangePassword: false,
       token: "your-token-here", // Thêm token nếu bạn đang sử dụng
-      username: user.username,
+      username: user.username
     });
+
   } catch (error) {
     console.error("Detailed login error:", error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       message: "Lỗi hệ thống",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -183,13 +181,7 @@ app.get("/store-info", async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
-        store_id, name, shop_owner, telephone, mobilephone,
-        address, district, province, region,
-        channel, store_rank,
-        npp_code, npp_name,
-        sr_code, sr_name,
-        tsm_code, tsm_name,
-        asm_code, asm_name
+        *
       FROM info
       ORDER BY store_id ASC
     `);
@@ -203,10 +195,9 @@ app.get("/store-info", async (req, res) => {
 // Add endpoint to update store status
 app.post("/update-status", async (req, res) => {
   const { store_id, status_type, note } = req.body;
-
+  
   try {
-    const result = await db.query(
-      `
+    const result = await db.query(`
       INSERT INTO status (store_id, status_type, note)
       VALUES ($1, $2, $3)
       ON CONFLICT (store_id) 
@@ -215,10 +206,8 @@ app.post("/update-status", async (req, res) => {
         note = $3,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *
-    `,
-      [store_id, status_type, note]
-    );
-
+    `, [store_id, status_type, note]);
+    
     res.status(200).json(result.rows[0]);
   } catch (error) {
     console.error("Error updating status:", error);
@@ -229,8 +218,7 @@ app.post("/update-status", async (req, res) => {
 // Get event details
 app.get("/events/:eventId", async (req, res) => {
   try {
-    const result = await db.query(
-      `
+    const result = await db.query(`
       SELECT 
         eventid, 
         event_name, 
@@ -239,14 +227,12 @@ app.get("/events/:eventId", async (req, res) => {
         GREATEST(0, DATE_PART('day', end_time - NOW())) AS days_remaining
       FROM event
       WHERE eventid = $1
-    `,
-      [req.params.eventId]
-    );
-
+    `, [req.params.eventId]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Event not found" });
     }
-
+    
     res.status(200).json(result.rows[0]);
   } catch (error) {
     console.error("Error fetching event details:", error);
@@ -257,9 +243,8 @@ app.get("/events/:eventId", async (req, res) => {
 // Get stores for specific event with status
 app.get("/event-stores/:eventId", async (req, res) => {
   try {
-    const result = await db.query(
-      `
-      SELECT 
+    const result = await db.query(`
+      SELECT DISTINCT
         i.store_id,
         i.name,
         i.mobilephone,
@@ -272,10 +257,8 @@ app.get("/event-stores/:eventId", async (req, res) => {
       LEFT JOIN status s ON i.store_id = s.store_id
       WHERE i.eventid = $1
       ORDER BY i.store_id ASC
-    `,
-      [req.params.eventId]
-    );
-
+    `, [req.params.eventId]);
+    
     res.status(200).json(result.rows);
   } catch (error) {
     console.error("Error fetching event stores:", error);
@@ -286,16 +269,15 @@ app.get("/event-stores/:eventId", async (req, res) => {
 // Get store info by ID
 app.get("/store-info/:id", async (req, res) => {
   try {
-    const result = await db.query("SELECT * FROM info WHERE store_id = $1", [
-      req.params.id,
-    ]);
-
+    const result = await db.query(
+      "SELECT * FROM info WHERE store_id = $1",
+      [req.params.id]
+    );
+    
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "Không tìm thấy thông tin cửa hàng" });
+      return res.status(404).json({ error: "Không tìm thấy thông tin cửa hàng" });
     }
-
+    
     res.json(result.rows[0]);
   } catch (error) {
     console.error("Error:", error);
@@ -305,8 +287,7 @@ app.get("/store-info/:id", async (req, res) => {
 
 // Update store info
 app.put("/store-info/:id", async (req, res) => {
-  const { address, mobilephone, store_rank, province, district, ward } =
-    req.body;
+  const { address, mobilephone, store_rank, province, district, ward } = req.body;
   try {
     // Kiểm tra xem cửa hàng có tồn tại không
     const checkStore = await db.query(
@@ -331,31 +312,31 @@ app.put("/store-info/:id", async (req, res) => {
        WHERE store_id = $7
        RETURNING *`,
       [
-        address,
-        mobilephone,
-        store_rank,
-        province,
-        district,
-        ward,
-        req.params.id,
+        address, 
+        mobilephone, 
+        store_rank, 
+        province, 
+        district, 
+        ward, 
+        req.params.id
       ]
     );
-
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Cập nhật thất bại" });
     }
-
+    
     res.json({
       success: true,
       message: "Cập nhật thành công",
-      data: result.rows[0],
+      data: result.rows[0]
     });
   } catch (error) {
     console.error("Error updating store info:", error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
       error: "Lỗi khi cập nhật thông tin",
-      details: error.message,
+      details: error.message 
     });
   }
 });
@@ -364,115 +345,113 @@ app.put("/store-info/:id", async (req, res) => {
 app.get("/districts/:provinceName", async (req, res) => {
   try {
     const provinceName = decodeURIComponent(req.params.provinceName);
-
+    
     // Mapping tên tỉnh sang mã tỉnh
     let provinceCode;
-    switch (provinceName) {
+    switch(provinceName) {
       // HCM Region
-      case "Thành phố Hồ Chí Minh":
+      case 'Thành phố Hồ Chí Minh':
         provinceCode = 79;
         break;
-      case "Bình Dương":
+      case 'Bình Dương':
         provinceCode = 74;
         break;
-      case "Đồng Nai":
+      case 'Đồng Nai':
         provinceCode = 75;
         break;
-
+      
       // CE Region
-      case "Thành phố Đà Nẵng":
+      case 'Thành phố Đà Nẵng':
         provinceCode = 48;
         break;
-      case "Bình Định":
+      case 'Bình Định':
         provinceCode = 52;
         break;
-      case "Gia Lai":
+      case 'Gia Lai':
         provinceCode = 64;
         break;
-      case "Kon Tum":
+      case 'Kon Tum':
         provinceCode = 62;
         break;
-      case "Phú Yên":
+      case 'Phú Yên':
         provinceCode = 54;
         break;
-      case "Quảng Bình":
+      case 'Quảng Bình':
         provinceCode = 44;
         break;
-      case "Quảng Nam":
+      case 'Quảng Nam':
         provinceCode = 49;
         break;
-      case "Quảng Ngãi":
+      case 'Quảng Ngãi':
         provinceCode = 51;
         break;
-      case "Quảng Trị":
+      case 'Quảng Trị':
         provinceCode = 45;
         break;
-      case "Thừa Thiên Huế":
+      case 'Thừa Thiên Huế':
         provinceCode = 46;
         break;
 
       // MKD Region
-      case "Thành phố Cần Thơ":
+      case 'Thành phố Cần Thơ':
         provinceCode = 92;
         break;
-      case "An Giang":
+      case 'An Giang':
         provinceCode = 89;
         break;
-      case "Bạc Liêu":
+      case 'Bạc Liêu':
         provinceCode = 95;
         break;
-      case "Bến Tre":
+      case 'Bến Tre':
         provinceCode = 83;
         break;
-      case "Cà Mau":
+      case 'Cà Mau':
         provinceCode = 96;
         break;
-      case "Đồng Tháp":
+      case 'Đồng Tháp':
         provinceCode = 87;
         break;
-      case "Hậu Giang":
+      case 'Hậu Giang':
         provinceCode = 93;
         break;
-      case "Kiên Giang":
+      case 'Kiên Giang':
         provinceCode = 91;
         break;
-      case "Long An":
+      case 'Long An':
         provinceCode = 80;
         break;
-      case "Sóc Trăng":
+      case 'Sóc Trăng':
         provinceCode = 94;
         break;
-      case "Tiền Giang":
+      case 'Tiền Giang':
         provinceCode = 82;
         break;
-      case "Trà Vinh":
+      case 'Trà Vinh':
         provinceCode = 84;
         break;
-      case "Vĩnh Long":
+      case 'Vĩnh Long':
         provinceCode = 86;
         break;
       default:
-        throw new Error("Province not found");
+        throw new Error('Province not found');
     }
-
+    
     // Sử dụng API của Vietnam Administrative Units với mã tỉnh chính xác
-    const response = await fetch(
-      `https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`
-    );
+    const response = await fetch(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`);
     const data = await response.json();
-
+    
     if (data && data.districts) {
       // Format districts data
-      const districts = data.districts.map((district) => ({
+      const districts = data.districts.map(district => ({
         id: district.code,
-        name: district.name,
+        name: district.name
       }));
       res.json(districts);
     } else {
       res.json([]);
     }
   } catch (error) {
-    console.error("Error fetching districts:", error);
+    console.error('Error fetching districts:', error);
     res.status(500).json({ error: "Error fetching districts" });
   }
 });
@@ -481,23 +460,21 @@ app.get("/districts/:provinceName", async (req, res) => {
 app.get("/wards/:districtCode", async (req, res) => {
   try {
     const districtCode = req.params.districtCode;
-    const response = await fetch(
-      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`
-    );
+    const response = await fetch(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`);
     const data = await response.json();
-
+    
     if (data && data.wards) {
       // Format wards data
-      const wards = data.wards.map((ward) => ({
+      const wards = data.wards.map(ward => ({
         id: ward.code,
-        name: ward.name,
+        name: ward.name
       }));
       res.json(wards);
     } else {
       res.json([]);
     }
   } catch (error) {
-    console.error("Error fetching wards:", error);
+    console.error('Error fetching wards:', error);
     res.status(500).json({ error: "Error fetching wards" });
   }
 });
@@ -525,8 +502,8 @@ app.get("/store-images/:storeId", async (req, res) => {
        WHERE store_id = $1 
        ORDER BY 
          CASE 
-           WHEN image_type = 'overview' THEN 1
-           WHEN image_type = 'frontage' THEN 2
+           WHEN image_type = 'tongquan' THEN 1
+           WHEN image_type = 'mattien' THEN 2
            ELSE 3
          END`,
       [req.params.storeId]
@@ -554,13 +531,13 @@ app.post("/store-images/:storeId", async (req, res) => {
     res.json({
       success: true,
       message: "Thêm hình ảnh thành công",
-      data: result.rows[0],
+      data: result.rows[0]
     });
   } catch (error) {
     console.error("Error adding store image:", error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      error: "Lỗi khi thêm hình ảnh",
+      error: "Lỗi khi thêm hình ảnh" 
     });
   }
 });
@@ -576,21 +553,22 @@ app.delete("/store-images/:storeId/:imageId", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
+      return res.status(404).json({ 
         success: false,
-        error: "Không tìm thấy hình ảnh",
+        error: "Không tìm thấy hình ảnh" 
       });
     }
 
     res.json({
       success: true,
-      message: "Xóa hình ảnh thành công",
+      message: "Xóa hình ảnh thành công"
     });
   } catch (error) {
     console.error("Error deleting store image:", error);
-    res.status(500).json({
+    res.status(500).json({ 
       success: false,
-      error: "Lỗi khi xóa hình ảnh",
+      error: "Lỗi khi xóa hình ảnh" 
     });
   }
 });
+
