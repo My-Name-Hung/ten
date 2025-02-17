@@ -62,7 +62,7 @@ function Event() {
                 {formatDateRange(event.start_time, event.end_time)}
               </p>
               <p className="text-gray-700 font-medium mb-4">
-                Thời gian còn lại: {event.days_remaining} ngày
+                Thời gian còn lại: <span className="text-red-700 font-medium">{event.days_remaining}</span> ngày
               </p>
 
               {/* Nút Xem chi tiết */}

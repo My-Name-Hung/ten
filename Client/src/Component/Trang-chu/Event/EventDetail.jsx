@@ -9,9 +9,9 @@ import Navbar from "../Navbar/navBar";
 const STATUS_MAPPING = {
   'Đang chờ duyệt': { label: 'Đang chờ duyệt', color: 'bg-yellow-100 text-yellow-800' },
   'Đạt': { label: 'Đạt', color: 'bg-green-100 text-green-800' },
-  'Rớt': { label: 'Không đạt', color: 'bg-red-100 text-red-800' },
+  'Không đạt': { label: 'Không đạt', color: 'bg-red-100 text-red-800' },  // Sửa từ 'Rớt' thành 'Không đạt'
   'Làm lại': { label: 'Làm lại', color: 'bg-blue-100 text-blue-800' },
-  '': { label: '', color: '' } // Thêm mapping cho trường hợp trống
+  '': { label: '', color: '' }
 };
 
 function EventDetail() {
@@ -36,6 +36,8 @@ function EventDetail() {
         // Fetch stores for this event
         const storesResponse = await fetch(`https://ten-p521.onrender.com/event-stores/${eventId}`);
         const storesData = await storesResponse.json();
+        
+        console.log("Stores data:", storesData); // Thêm log này để kiểm tra
         
         // Filter stores if storeId is provided
         const filteredData = filteredStoreId 
@@ -62,7 +64,7 @@ function EventDetail() {
       store.address?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const matchStatus = statusFilter === "all" ? true : store.status_type === statusFilter;
+    const matchStatus = statusFilter === "all" ? true : store.status === statusFilter;
 
     return matchSearch && matchStatus;
   });
@@ -80,6 +82,10 @@ function EventDetail() {
     }
   };
 
+  const handleStoreClick = (store) => {
+    navigate(`/store-photo-capture/${eventId}/${store.store_id}`);
+  };
+
   return (
     <div>
     <div className="min-h-screen bg-gray-50">
@@ -89,19 +95,30 @@ function EventDetail() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           {/* Left side: Return button and Event name */}
-          <div className="flex items-center gap-4 w-full sm:w-auto">
-            {searchParams.get('store') && (
-              <button
-                onClick={handleReturn}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white rounded-lg border border-gray-300 hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm"
-              >
-                <IoReturnDownBack className="w-5 h-5" />
-                <span className="text-sm font-medium">Quay lại</span>
-              </button>
-            )}
-            <h1 className="text-2xl font-bold text-gray-900">
-              {eventDetails?.event_name}
-            </h1>
+          <div className="flex flex-col gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-4">
+              {searchParams.get('store') && (
+                <button
+                  onClick={handleReturn}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white rounded-lg border border-gray-300 hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm"
+                >
+                  <IoReturnDownBack className="w-5 h-5" />
+                  <span className="text-sm font-medium">Quay lại</span>
+                </button>
+              )}
+              <h1 className="text-2xl font-bold text-gray-900">
+                {eventDetails?.event_name}
+              </h1>
+            </div>
+            {/* Add remaining time below event name */}
+            <div className="flex items-center text-gray-600 text-lg">
+              <span>
+                {eventDetails?.days_remaining > 0 
+                  ? (<>Thời gian còn lại: <span className="text-red-700 font-medium">{eventDetails.days_remaining}</span> ngày</>)
+                  : 'Đã kết thúc'
+                }
+              </span>
+            </div>
           </div>
           
           {/* Right side: Clear filter button */}
@@ -157,7 +174,8 @@ function EventDetail() {
           {filteredStores.map((store) => (
             <div
               key={store.store_id}
-              className="bg-white rounded-lg shadow-md overflow-hidden"
+              className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleStoreClick(store)}
             >
               {/* Mobile Layout (List) */}
               <div className="flex md:hidden">
@@ -174,9 +192,9 @@ function EventDetail() {
                       {store.name}
                     </h3>
                     <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-medium ${
-                      store.status_type ? STATUS_MAPPING[store.status_type]?.color : ''
+                      store.status ? STATUS_MAPPING[store.status]?.color : ''
                     }`}>
-                      {store.status_type ? STATUS_MAPPING[store.status_type]?.label : ''}
+                      {store.status ? STATUS_MAPPING[store.status]?.label : ''}
                     </span>
                   </div>
                   <div className="mt-1 space-y-1">
@@ -208,9 +226,9 @@ function EventDetail() {
                       {store.name}
                     </h3>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      store.status_type ? STATUS_MAPPING[store.status_type]?.color : ''
+                      store.status ? STATUS_MAPPING[store.status]?.color : ''
                     }`}>
-                      {store.status_type ? STATUS_MAPPING[store.status_type]?.label : ''}
+                      {store.status ? STATUS_MAPPING[store.status]?.label : ''}
                     </span>
                   </div>
                   <div className="space-y-1">

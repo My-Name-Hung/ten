@@ -709,3 +709,68 @@ app.get('/ping-status', (req, res) => {
   res.json(serverPinger.getStatus());
 });
 
+// Upload hình ảnh kiểm tra cửa hàng
+app.post("/store-audit-images/:storeId", async (req, res) => {
+  const { image_url, image_type, location, event_id } = req.body;
+  const { storeId } = req.params;
+
+  try {
+    // Xóa ảnh cũ cùng loại trong cùng sự kiện nếu có
+    await db.query(
+      `DELETE FROM store_audit_images 
+       WHERE store_id = $1 AND event_id = $2 AND image_type = $3`,
+      [storeId, event_id, image_type]
+    );
+
+    // Thêm ảnh mới
+    const result = await db.query(
+      `INSERT INTO store_audit_images 
+         (store_id, event_id, image_url, image_type, latitude, longitude)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        storeId,
+        event_id,
+        image_url,
+        image_type,
+        location?.latitude || null,
+        location?.longitude || null
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Upload ảnh thành công",
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Error uploading store audit image:", error);
+    res.status(500).json({
+      success: false,
+      error: "Lỗi khi upload ảnh"
+    });
+  }
+});
+
+// Lấy hình ảnh kiểm tra của cửa hàng
+app.get("/store-audit-images/:storeId/:eventId", async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT * FROM store_audit_images 
+       WHERE store_id = $1 AND event_id = $2
+       ORDER BY 
+         CASE 
+           WHEN image_type = 'tongquan' THEN 1
+           WHEN image_type = 'mattien' THEN 2
+           ELSE 3
+         END`,
+      [req.params.storeId, req.params.eventId]
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching store audit images:", error);
+    res.status(500).json({ error: "Lỗi khi lấy hình ảnh kiểm tra cửa hàng" });
+  }
+});
+
