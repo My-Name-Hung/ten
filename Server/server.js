@@ -252,7 +252,7 @@ app.get("/event-stores/:eventId", async (req, res) => {
         i.mobilephone,
         i.address,
         si.image_url,
-        COALESCE(ses.status_type, 'Đang chờ duyệt') as status
+        ses.status_type as status
       FROM info i
       INNER JOIN store_events se ON i.store_id = se.store_id
       LEFT JOIN store_images si ON i.store_id = si.store_id
