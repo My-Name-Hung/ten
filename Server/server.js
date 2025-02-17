@@ -774,3 +774,21 @@ app.get("/store-audit-images/:storeId/:eventId", async (req, res) => {
   }
 });
 
+// Lấy danh sách loại ảnh theo event
+app.get("/photo-types/:eventId", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const result = await db.query(
+      `SELECT * FROM photo_types 
+       WHERE 'all' = ANY(event_ids) 
+       OR $1 = ANY(event_ids)
+       ORDER BY display_order ASC`,
+      [eventId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching photo types:", error);
+    res.status(500).json({ error: "Lỗi khi lấy thông tin loại ảnh" });
+  }
+});
+
