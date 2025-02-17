@@ -5,12 +5,13 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Footer from "../../Footer/Footer";
 import Navbar from "../Navbar/navBar";
 
-// Cập nhật STATUS_MAPPING để phù hợp với dữ liệu từ database
+// Cập nhật STATUS_MAPPING để xử lý trường hợp trống
 const STATUS_MAPPING = {
   'Đang chờ duyệt': { label: 'Đang chờ duyệt', color: 'bg-yellow-100 text-yellow-800' },
   'Đạt': { label: 'Đạt', color: 'bg-green-100 text-green-800' },
   'Rớt': { label: 'Không đạt', color: 'bg-red-100 text-red-800' },
-  'Làm lại': { label: 'Làm lại', color: 'bg-blue-100 text-blue-800' }
+  'Làm lại': { label: 'Làm lại', color: 'bg-blue-100 text-blue-800' },
+  '': { label: '', color: '' } // Thêm mapping cho trường hợp trống
 };
 
 function EventDetail() {
@@ -172,8 +173,10 @@ function EventDetail() {
                     <h3 className="font-medium text-red-800 text-base truncate mr-2">
                       {store.name}
                     </h3>
-                    <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-medium ${STATUS_MAPPING[store.status_type]?.color || 'bg-yellow-100 text-yellow-800'}`}>
-                      {STATUS_MAPPING[store.status_type]?.label || 'Đang chờ duyệt'}
+                    <span className={`flex-shrink-0 px-2 py-1 rounded-full text-xs font-medium ${
+                      store.status_type ? STATUS_MAPPING[store.status_type]?.color : ''
+                    }`}>
+                      {store.status_type ? STATUS_MAPPING[store.status_type]?.label : ''}
                     </span>
                   </div>
                   <div className="mt-1 space-y-1">
@@ -204,8 +207,10 @@ function EventDetail() {
                     <h3 className="font-medium text-red-800 line-clamp-1" title={store.name}>
                       {store.name}
                     </h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_MAPPING[store.status_type]?.color || 'bg-yellow-100 text-yellow-800'}`}>
-                      {STATUS_MAPPING[store.status_type]?.label || 'Đang chờ duyệt'}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      store.status_type ? STATUS_MAPPING[store.status_type]?.color : ''
+                    }`}>
+                      {store.status_type ? STATUS_MAPPING[store.status_type]?.label : ''}
                     </span>
                   </div>
                   <div className="space-y-1">
