@@ -792,3 +792,62 @@ app.get("/photo-types/:eventId", async (req, res) => {
   }
 });
 
+// Get store status for event
+app.get("/store-status/:storeId/:eventId", async (req, res) => {
+  try {
+    const { storeId, eventId } = req.params;
+    
+    const result = await db.query(
+      `SELECT status_type 
+       FROM store_event_status 
+       WHERE store_id = $1 AND eventid = $2`,
+      [storeId, eventId]
+    );
+
+    if (result.rows.length === 0) {
+      // Kiểm tra xem cửa hàng có ảnh không
+      const photoResult = await db.query(
+        `SELECT COUNT(*) 
+         FROM store_audit_images 
+         WHERE store_id = $1 AND event_id = $2`,
+        [storeId, eventId]
+      );
+
+      // Nếu có ảnh nhưng chưa có status, mặc định là "Đang chờ duyệt"
+      if (parseInt(photoResult.rows[0].count) > 0) {
+        return res.json({ status: "Đang chờ duyệt" });
+      }
+      
+      return res.json({ status: null });
+    }
+
+    res.json({ status: result.rows[0].status_type });
+  } catch (error) {
+    console.error("Error fetching store status:", error);
+    res.status(500).json({ error: "Failed to fetch store status" });
+  }
+});
+
+// Update store status
+app.put("/store-event-status", async (req, res) => {
+  try {
+    const { store_id, eventid, status_type } = req.body;
+
+    const result = await db.query(
+      `INSERT INTO store_event_status (store_id, eventid, status_type)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (store_id, eventid)
+       DO UPDATE SET 
+         status_type = $3,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [store_id, eventid, status_type]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating store status:", error);
+    res.status(500).json({ error: "Failed to update store status" });
+  }
+});
+

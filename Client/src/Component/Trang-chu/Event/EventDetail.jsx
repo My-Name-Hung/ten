@@ -82,8 +82,24 @@ function EventDetail() {
     }
   };
 
-  const handleStoreClick = (store) => {
-    navigate(`/store-photo-capture/${eventId}/${store.store_id}`);
+  const handleStoreClick = async (storeId) => {
+    try {
+      // Kiểm tra xem cửa hàng đã có ảnh chưa
+      const response = await fetch(`https://ten-p521.onrender.com/store-audit-images/${storeId}/${eventId}`);
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        // Nếu đã có ảnh, chuyển đến trang Gallery
+        navigate(`/store-gallery/${eventId}/${storeId}`);
+      } else {
+        // Nếu chưa có ảnh, chuyển đến trang chụp ảnh
+        navigate(`/store-photo-capture/${eventId}/${storeId}`);
+      }
+    } catch (error) {
+      console.error('Error checking store status:', error);
+      // Nếu có lỗi, mặc định chuyển đến trang chụp ảnh
+      navigate(`/store-photo-capture/${eventId}/${storeId}`);
+    }
   };
 
   return (
@@ -175,7 +191,7 @@ function EventDetail() {
             <div
               key={store.store_id}
               className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => handleStoreClick(store)}
+              onClick={() => handleStoreClick(store.store_id)}
             >
               {/* Mobile Layout (List) */}
               <div className="flex md:hidden">

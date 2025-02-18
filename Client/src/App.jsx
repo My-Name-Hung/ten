@@ -13,6 +13,7 @@ import EventDetail from "./Component/Trang-chu/Event/EventDetail.jsx";
 import Event from "./Component/Trang-chu/Event/Event.jsx";
 import TranslateWidget from './Component/TranslateWidget/TranslateWidget';
 import StorePhotoCapture from './Component/Trang-chu/Event/StorePhotoCapture';
+import StoreGallery from './Component/Trang-chu/Event/StoreGallery';
 
 const isAuthenticated = () => {
   return !!localStorage.getItem("token");
@@ -112,6 +113,7 @@ function App() {
             }
           />
           <Route path="/store-photo-capture/:eventId/:storeId" element={<StorePhotoCapture />} />
+          <Route path="/store-gallery/:eventId/:storeId" element={<StoreGallery />} />
         </Routes>
       </div>
     </BrowserRouter>

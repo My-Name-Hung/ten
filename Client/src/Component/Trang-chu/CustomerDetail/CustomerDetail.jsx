@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaEdit, FaSave, FaTimes, FaMedal, FaCheck, FaExclamationCircle, FaPlus, FaMinus } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTimes, FaMedal, FaCheck, FaExclamationCircle, FaPlus, FaMinus, FaImage } from 'react-icons/fa';
 import Navbar from '../Navbar/navBar';
 import Footer from '../../Footer/Footer';
 import AddressForm from './AddressForm/AddressForm';
@@ -300,10 +300,13 @@ function CustomerDetail() {
           <div className="space-y-8">
             {/* Store Images Card */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="p-6 sm:p-8">
-                <h2 className="text-xl font-semibold text-blue-900 mb-6">
-                  Hình ảnh cửa hàng
-                </h2>
+              <div className="p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <FaImage className="text-red-600 text-xl" />
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Hình ảnh cửa hàng
+                  </h2>
+                </div>
                 <StoreImages storeId={id} />
               </div>
             </div>
