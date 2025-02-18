@@ -5,6 +5,7 @@ import Webcam from "react-webcam";
 import Navbar from "../Navbar/navBar";
 import { useTranslateWidget } from '../../../contexts/TranslateWidgetContext';
 import BarcodeScanner from '../../BarcodeScanner/BarcodeScanner';
+import Swal from 'sweetalert2';
 
 function StorePhotoCapture() {
   const { eventId, storeId } = useParams();
@@ -368,33 +369,31 @@ function StorePhotoCapture() {
     );
   };
 
-  // Xử lý khi quét được mã vạch
+  // Cập nhật hàm xử lý quét mã vạch
   const handleBarcodeDetected = async (code) => {
     try {
-      // Gọi API để lấy thông tin tài sản
-      const response = await fetch(`https://ten-p521.onrender.com/asset/${code}`);
-      if (!response.ok) throw new Error('Không tìm thấy thông tin tài sản');
-      
-      const assetData = await response.json();
-      setScannedAsset(assetData);
+      // Hiển thị thông báo với mã vạch đã quét được
+      Swal.fire({
+        icon: 'success',
+        title: 'Quét mã vạch thành công!',
+        text: `Mã sản phẩm: ${code}`,
+        showConfirmButton: true,
+        confirmButtonText: 'Đóng',
+        confirmButtonColor: '#10B981'
+      });
+
+      // Đóng scanner
       setShowBarcodeScanner(false);
       setIsWidgetVisible(true);
 
-      // Cập nhật thông tin tài sản cho cửa hàng
-      await fetch(`https://ten-p521.onrender.com/store-assets/${storeId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          asset_id: code,
-          event_id: eventId
-        })
-      });
-
     } catch (error) {
       console.error('Error scanning barcode:', error);
-      alert('Không tìm thấy thông tin tài sản với mã này');
+      Swal.fire({
+        icon: 'error',
+        title: 'Lỗi!',
+        text: 'Không thể quét mã vạch. Vui lòng thử lại.',
+        confirmButtonColor: '#EF4444'
+      });
     }
   };
 

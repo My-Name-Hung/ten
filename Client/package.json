@@ -34,6 +34,7 @@
     "react-qr-barcode-scanner": "^2.0.0",
     "react-router-dom": "^7.0.2",
     "react-scroll-parallax": "^3.4.5",
+    "react-sweetalert2": "^0.6.0",
     "react-webcam": "^7.2.0",
     "sequelize": "^6.37.5"
   },
