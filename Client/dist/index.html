@@ -14,8 +14,23 @@
     <link rel="icon" type="image/svg+xml" href="/assets/favicon-CbjDC0l_.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <title>Coca Cola</title>
-    <script type="module" crossorigin src="/assets/index-Bw3GxPPa.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Dyar8_zU.css">
+
+    <!-- Add Scandit SDK imports -->
+
+    <script type="importmap">
+    {
+      "imports": {
+        "@scandit/web-datacapture-core": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/build/js/index.js",
+        "@scandit/web-datacapture-barcode": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/build/js/index.js",
+        "@scandit/web-datacapture-barcode/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/",
+        "@scandit/web-datacapture-core/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/"
+      }
+    }
+    </script>
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/build/js/index.js" />
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/build/js/index.js" />
+    <script type="module" crossorigin src="/assets/index-BYOboZGg.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DuiOmfjw.css">
   </head>
 
   <body>

@@ -14,6 +14,20 @@
     <link rel="icon" type="image/svg+xml" href="./public/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <title>Coca Cola</title>
+
+    <!-- Add Scandit SDK imports -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@scandit/web-datacapture-core": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/build/js/index.js",
+        "@scandit/web-datacapture-barcode": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/build/js/index.js",
+        "@scandit/web-datacapture-barcode/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/",
+        "@scandit/web-datacapture-core/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/"
+      }
+    }
+    </script>
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@7.0.0/build/js/index.js" />
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@7.0.0/build/js/index.js" />
   </head>
 
   <body>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers, FaCalendarAlt } from 'react-icons/fa';
+import { LuScanBarcode } from "react-icons/lu";
 
 function NavigationPopup({ isOpen, onClose }) {
   const navigate = useNavigate();
@@ -48,6 +49,22 @@ function NavigationPopup({ isOpen, onClose }) {
               </h3>
               <p className="text-sm text-gray-600">
                 Xem và quản lý các chương trình
+              </p>
+            </div>
+          </button>
+
+          {/* Option 3: Danh sách sản phẩm */}
+          <button
+            onClick={() => handleNavigation('/scanned-items')}
+            className="w-full flex items-center p-4 bg-white border-2 border-red-600 rounded-lg hover:bg-red-50 transition-colors group"
+          >
+            <LuScanBarcode className="text-2xl text-red-600 mr-4 group-hover:scale-110 transition-transform" />
+            <div className="text-left">
+              <h3 className="text-lg font-semibold text-red-800">
+                Danh sách sản phẩm
+              </h3>
+              <p className="text-sm text-gray-600">
+                Xem và quản lý các sản phẩm đã quét
               </p>
             </div>
           </button>

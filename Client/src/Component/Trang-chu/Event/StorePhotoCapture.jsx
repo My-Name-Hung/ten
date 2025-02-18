@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Webcam from "react-webcam";
 import Navbar from "../Navbar/navBar";
 import { useTranslateWidget } from '../../../contexts/TranslateWidgetContext';
-import BarcodeScanner from '../../BarcodeScanner/BarcodeScanner';
+import BarcodeScanner from '../../BarcodeScanner/BarcodeScanner.jsx';
 import Swal from 'sweetalert2';
 
 function StorePhotoCapture() {
@@ -30,13 +30,16 @@ function StorePhotoCapture() {
   const [cameraPermission, setCameraPermission] = useState(false);
   const { setIsWidgetVisible } = useTranslateWidget();
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-  const [scannedAsset, setScannedAsset] = useState(null);
+  const [scannedItems, setScannedItems] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   // Cấu hình camera
   const videoConstraints = {
     facingMode: { ideal: "environment" }, // Ưu tiên camera sau
     width: { ideal: 1920 },
-    height: { ideal: 1080 },
+    height: { ideal: 1080 }
   };
 
   // Kiểm tra và yêu cầu quyền truy cập
@@ -267,19 +270,29 @@ function StorePhotoCapture() {
       }
 
       // Chụp ảnh ngay lập tức
-      const imageSrc = webcamRef.current.getScreenshot();
+      const imageSrc = webcamRef.current.getScreenshot({
+        width: 1280,
+        height: 720
+      });
+
       if (!imageSrc) {
         throw new Error("Không thể chụp ảnh");
       }
 
-      // Lấy vị trí
-      const location = await getCurrentLocation();
+      // Lấy vị trí song song với việc xử lý ảnh
+      const locationPromise = getCurrentLocation();
+
+      // Tối ưu kích thước ảnh trước khi lưu
+      const optimizedImage = await optimizeImage(imageSrc);
+
+      // Đợi lấy vị trí
+      const location = await locationPromise;
 
       // Cập nhật state
       setPhotos(prev => ({
         ...prev,
         [currentPhotoType]: {
-          image: imageSrc,
+          image: optimizedImage,
           location: location
         }
       }));
@@ -288,11 +301,12 @@ function StorePhotoCapture() {
       setIsWidgetVisible(true);
       setError(null);
       setHasUnsavedChanges(true);
+
     } catch (error) {
       setError(error.message);
       console.error("Error taking photo:", error);
     }
-  }, [currentPhotoType]);
+  }, [currentPhotoType, getCurrentLocation]);
 
   // Camera Modal Component
   const CameraModal = () => {
@@ -369,29 +383,86 @@ function StorePhotoCapture() {
     );
   };
 
-  // Cập nhật hàm xử lý quét mã vạch
-  const handleBarcodeDetected = async (code) => {
-    try {
-      // Hiển thị thông báo với mã vạch đã quét được
-      Swal.fire({
-        icon: 'success',
-        title: 'Quét mã vạch thành công!',
-        text: `Mã sản phẩm: ${code}`,
-        showConfirmButton: true,
-        confirmButtonText: 'Đóng',
-        confirmButtonColor: '#10B981'
-      });
+  // Load scanned items from localStorage when component mounts
+  useEffect(() => {
+    const savedItems = localStorage.getItem(`scannedItems_${storeId}_${eventId}`);
+    if (savedItems) {
+      setScannedItems(JSON.parse(savedItems));
+    }
+  }, [storeId, eventId]);
 
-      // Đóng scanner
+  // Hàm tối ưu ảnh
+  const optimizeImage = async (base64Image) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Tính toán kích thước mới giữ nguyên tỷ lệ
+        const maxWidth = 1280;
+        const maxHeight = 720;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round(height * (maxWidth / width));
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = Math.round(width * (maxHeight / height));
+          height = maxHeight;
+        }
+
+        // Thiết lập canvas
+        canvas.width = width;
+        canvas.height = height;
+
+        // Vẽ ảnh với chất lượng tối ưu
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Chuyển đổi sang base64 với chất lượng thấp hơn
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = base64Image;
+    });
+  };
+  // Save scanned items to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(`scannedItems_${storeId}_${eventId}`, JSON.stringify(scannedItems));
+  }, [scannedItems, storeId, eventId]);
+
+  // Cập nhật hàm xử lý quét mã vạch
+  const handleBarcodeDetected = async (data) => {
+    try {
       setShowBarcodeScanner(false);
-      setIsWidgetVisible(true);
+      
+      // Check if item already exists
+      const existingItemIndex = scannedItems.findIndex(item => item.barcode === data.barcode);
+      
+      if (existingItemIndex === -1) {
+        // Add new item
+        const newItem = {
+          barcode: data.barcode,
+          timestamp: new Date().toISOString(),
+          storeId: storeId,
+          eventId: eventId,
+          status: 'Chưa có thông tin sản phẩm'
+        };
+        
+        setScannedItems(prev => [...prev, newItem]);
+        setSelectedItem(newItem);
+      } else {
+        // Select existing item
+        setSelectedItem(scannedItems[existingItemIndex]);
+      }
 
     } catch (error) {
-      console.error('Error scanning barcode:', error);
+      console.error('Error handling barcode:', error);
       Swal.fire({
         icon: 'error',
-        title: 'Lỗi!',
-        text: 'Không thể quét mã vạch. Vui lòng thử lại.',
+        title: 'Có lỗi xảy ra!',
+        text: 'Không thể xử lý mã vạch. Vui lòng thử lại.',
         confirmButtonColor: '#EF4444'
       });
     }
@@ -526,6 +597,31 @@ function StorePhotoCapture() {
     }
   };
 
+  const handleImageClick = (imageUrl) => {
+    setSelectedImage(imageUrl);
+    setShowImageModal(true);
+  };
+
+  const ImageModal = ({ imageUrl, onClose }) => {
+    return (
+      <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
+        <div className="relative max-w-4xl w-full">
+          <button
+            onClick={onClose}
+            className="absolute -top-10 right-0 text-white hover:text-gray-300"
+          >
+            <FaTimes size={24} />
+          </button>
+          <img
+            src={imageUrl}
+            alt="Product"
+            className="w-full h-auto rounded-lg"
+          />
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -654,32 +750,140 @@ function StorePhotoCapture() {
         {/* Camera Modal */}
         <CameraModal />
 
-        {/* Scanned Asset Info */}
-        {scannedAsset && (
-          <div className="p-4 mb-4 bg-white rounded-lg shadow">
-            <h3 className="text-lg font-medium mb-2">Thông tin tài sản đã quét</h3>
-            <div className="space-y-2">
-              <p><span className="font-medium">Mã tài sản:</span> {scannedAsset.mataisan}</p>
-              <p><span className="font-medium">Loại:</span> {scannedAsset.loai}</p>
-              <p><span className="font-medium">Seri:</span> {scannedAsset.seri}</p>
-              <p><span className="font-medium">Tình trạng:</span> {scannedAsset.tinhtrang}</p>
+        {/* Thêm phần hiển thị sản phẩm đã quét */}
+        <div className="container mx-auto px-4 py-6">
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-red-800">
+                Sản phẩm đã quét ({scannedItems.length})
+              </h2>
+              <button
+                onClick={() => setShowBarcodeScanner(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <FaBarcode />
+                <span>Quét mã vạch</span>
+              </button>
+            </div>
+
+            {/* Danh sách sản phẩm */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {scannedItems.map((item) => (
+                    <div
+                      key={item.barcode}
+                      onClick={() => setSelectedItem(item)}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedItem?.barcode === item.barcode
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50 border border-gray-200'
+                      }`}
+                    >
+                      <div className="font-medium">Mã vạch: {item.barcode}</div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </div>
+                      <div className={`text-sm ${
+                        item.status === 'Chưa có thông tin sản phẩm' 
+                          ? 'text-yellow-600' 
+                          : 'text-green-600'
+                      }`}>
+                        {item.status}
+                      </div>
+                    </div>
+                  ))}
+                  {scannedItems.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      Chưa có sản phẩm nào được quét
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Chi tiết sản phẩm */}
+              <div className="md:col-span-2">
+                {selectedItem ? (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4">Chi tiết sản phẩm</h3>
+                    <div className="space-y-4">
+                      {/* Hiển thị hình ảnh nếu có */}
+                      {selectedItem.productInfo?.image && (
+                        <div className="flex items-center space-x-4">
+                          <div 
+                            className="w-16 h-16 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => handleImageClick(selectedItem.productInfo.image)}
+                          >
+                            <img
+                              src={selectedItem.productInfo.image}
+                              alt="Product"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Thông tin cơ bản */}
+                      <div>
+                        <label className="font-medium">Mã vạch:</label>
+                        <div className="mt-1">{selectedItem.barcode}</div>
+                      </div>
+                      <div>
+                        <label className="font-medium">Thời gian quét:</label>
+                        <div className="mt-1">
+                          {new Date(selectedItem.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="font-medium">Trạng thái:</label>
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            selectedItem.status === 'Chưa có thông tin sản phẩm'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {selectedItem.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Thông tin chi tiết sản phẩm */}
+                      {selectedItem.productInfo && (
+                        <div className="grid grid-cols-1 gap-4">
+                          {Object.entries(selectedItem.productInfo).map(([key, value]) => {
+                            // Bỏ qua trường hình ảnh vì đã hiển thị ở trên
+                            if (key === 'image') return null;
+                            
+                            return (
+                              <div key={key}>
+                                <label className="font-medium capitalize">
+                                  {key.replace(/_/g, ' ')}:
+                                </label>
+                                <div className="mt-1">
+                                  {typeof value === 'object' 
+                                    ? JSON.stringify(value, null, 2)
+                                    : value}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    Chọn một sản phẩm để xem chi tiết
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Thêm nút quét mã vạch */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-up">
           <div className="container mx-auto flex justify-between items-center">
-            <button
-              onClick={() => {
-                setShowBarcodeScanner(true);
-                setIsWidgetVisible(false);
-              }}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg"
-            >
-              <FaBarcode className="mr-2" />
-              Quét mã vạch
-            </button>
             
             {/* Submit Button */}
             {Object.values(photos).some((photo) => photo) && (
@@ -706,12 +910,23 @@ function StorePhotoCapture() {
         )}
       </div>
 
+      {/* BarcodeScanner Modal */}
       {showBarcodeScanner && (
         <BarcodeScanner
           onDetected={handleBarcodeDetected}
+          onClose={() => setShowBarcodeScanner(false)}
+          storeId={storeId}
+          eventId={eventId}
+        />
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && selectedImage && (
+        <ImageModal
+          imageUrl={selectedImage}
           onClose={() => {
-            setShowBarcodeScanner(false);
-            setIsWidgetVisible(true);
+            setShowImageModal(false);
+            setSelectedImage(null);
           }}
         />
       )}

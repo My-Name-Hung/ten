@@ -15,7 +15,7 @@ const Reset = () => {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+  
   const navigate = useNavigate();
 
   // Check if user is authenticated

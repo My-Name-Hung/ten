@@ -180,7 +180,7 @@ function EventDetail() {
             <option value="all">Tất cả</option>
             <option value="Đang chờ duyệt">Đang chờ duyệt</option>
             <option value="Đạt">Đạt</option>
-            <option value="Rớt">Không đạt</option>
+            <option value="Không đạt">Không đạt</option>
             <option value="Làm lại">Làm lại</option>
           </select>
         </div>

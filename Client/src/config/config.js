@@ -1,0 +1,1 @@
+export const LICENSE_KEY_SCANDIT = import.meta.env.VITE_LICENSE_KEY_SCANDIT;

@@ -37,6 +37,7 @@ function NavBar() {
   const menuItems = [
     { label: "Danh sách chương trình", path: "/event" },
     { label: "Danh sách khách hàng", path: "/danh-sach-khach-hang" },
+    { label: "Danh sách sản phẩm", path: "/scanned-items" },
     { label: "Đổi mật khẩu", path: "/doi-mat-khau" },
     { label: "Đăng xuất", onClick: handleLogout }, // Logout button
   ];

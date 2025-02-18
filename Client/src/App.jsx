@@ -15,6 +15,7 @@ import TranslateWidget from './Component/TranslateWidget/TranslateWidget';
 import StorePhotoCapture from './Component/Trang-chu/Event/StorePhotoCapture';
 import StoreGallery from './Component/Trang-chu/Event/StoreGallery';
 import { TranslateWidgetProvider } from './contexts/TranslateWidgetContext';
+import ScannedItemsPage from './Component/ScannedItems/ScannedItemsPage';
 
 const isAuthenticated = () => {
   return !!localStorage.getItem("token");
@@ -92,7 +93,7 @@ function App() {
               element={
                 <ProtectedRoute
                   element={<CustomerDetail />}
-                  allowedPaths={["/customer-detail/:id", "/danh-sach-khach-hang"]} // Thêm cả path gốc
+                  allowedPaths={["/customer-detail/:id", "/danh-sach-khach-hang"]}
                 />
               }
             />
@@ -116,6 +117,7 @@ function App() {
             />
             <Route path="/store-photo-capture/:eventId/:storeId" element={<StorePhotoCapture />} />
             <Route path="/store-gallery/:eventId/:storeId" element={<StoreGallery />} />
+            <Route path="/scanned-items" element={<ScannedItemsPage />} />
           </Routes>
         </div>
       </BrowserRouter>
