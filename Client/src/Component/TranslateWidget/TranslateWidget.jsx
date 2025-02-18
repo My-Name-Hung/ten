@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
 import './TranslateWidget.css';
+import { useTranslateWidget } from '../../contexts/TranslateWidgetContext';
 
 const TranslateWidget = () => {
+  const { isWidgetVisible } = useTranslateWidget();
+
   useEffect(() => {
     // Cấu hình chính xác như yêu cầu
     window.gtranslateSettings = {
@@ -29,6 +32,8 @@ const TranslateWidget = () => {
       }
     };
   }, []);
+
+  if (!isWidgetVisible) return null;
 
   return <div className="gtranslate_wrapper"></div>;
 };

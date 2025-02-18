@@ -14,6 +14,7 @@ import Event from "./Component/Trang-chu/Event/Event.jsx";
 import TranslateWidget from './Component/TranslateWidget/TranslateWidget';
 import StorePhotoCapture from './Component/Trang-chu/Event/StorePhotoCapture';
 import StoreGallery from './Component/Trang-chu/Event/StoreGallery';
+import { TranslateWidgetProvider } from './contexts/TranslateWidgetContext';
 
 const isAuthenticated = () => {
   return !!localStorage.getItem("token");
@@ -53,70 +54,72 @@ const ProtectedRoute = ({ element, allowedPaths }) => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <div className="app-container">
-        <TranslateWidget />
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route
-            path="/home"
-            element={
-              <ProtectedRoute 
-                element={<Home />} 
-                allowedPaths={["/home"]} 
-              />
-            }
-          />
-          <Route
-            path="/doi-mat-khau"
-            element={
-              <ProtectedRoute 
-                element={<Reset />} 
-                allowedPaths={["/doi-mat-khau"]} 
-              />
-            }
-          />
-          <Route
-            path="/danh-sach-khach-hang"
-            element={
-              <ProtectedRoute
-                element={<CustomerList />}
-                allowedPaths={["/danh-sach-khach-hang"]}
-              />
-            }
-          />
-          <Route
-            path="/customer-detail/:id"
-            element={
-              <ProtectedRoute
-                element={<CustomerDetail />}
-                allowedPaths={["/customer-detail/:id", "/danh-sach-khach-hang"]} // Thêm cả path gốc
-              />
-            }
-          />
-          <Route
-            path="/event"
-            element={
-              <ProtectedRoute
-                element={<Home />}
-                allowedPaths={["/event"]}
-              />
-            }
-          />
-          <Route
-            path="/event-detail/:eventId"
-            element={
-              <ProtectedRoute
-                element={<EventDetail />}
-                allowedPaths={["/event-detail/:eventId"]}
-              />
-            }
-          />
-          <Route path="/store-photo-capture/:eventId/:storeId" element={<StorePhotoCapture />} />
-          <Route path="/store-gallery/:eventId/:storeId" element={<StoreGallery />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <TranslateWidgetProvider>
+      <BrowserRouter>
+        <div className="app-container">
+          <TranslateWidget />
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route
+              path="/home"
+              element={
+                <ProtectedRoute 
+                  element={<Home />} 
+                  allowedPaths={["/home"]} 
+                />
+              }
+            />
+            <Route
+              path="/doi-mat-khau"
+              element={
+                <ProtectedRoute 
+                  element={<Reset />} 
+                  allowedPaths={["/doi-mat-khau"]} 
+                />
+              }
+            />
+            <Route
+              path="/danh-sach-khach-hang"
+              element={
+                <ProtectedRoute
+                  element={<CustomerList />}
+                  allowedPaths={["/danh-sach-khach-hang"]}
+                />
+              }
+            />
+            <Route
+              path="/customer-detail/:id"
+              element={
+                <ProtectedRoute
+                  element={<CustomerDetail />}
+                  allowedPaths={["/customer-detail/:id", "/danh-sach-khach-hang"]} // Thêm cả path gốc
+                />
+              }
+            />
+            <Route
+              path="/event"
+              element={
+                <ProtectedRoute
+                  element={<Home />}
+                  allowedPaths={["/event"]}
+                />
+              }
+            />
+            <Route
+              path="/event-detail/:eventId"
+              element={
+                <ProtectedRoute
+                  element={<EventDetail />}
+                  allowedPaths={["/event-detail/:eventId"]}
+                />
+              }
+            />
+            <Route path="/store-photo-capture/:eventId/:storeId" element={<StorePhotoCapture />} />
+            <Route path="/store-gallery/:eventId/:storeId" element={<StoreGallery />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </TranslateWidgetProvider>
   );
 }
 

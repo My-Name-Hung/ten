@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { FaCamera, FaTimes, FaMapMarkerAlt } from "react-icons/fa";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { FaCamera, FaTimes, FaMapMarkerAlt, FaBarcode } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
 import Webcam from "react-webcam";
 import Navbar from "../Navbar/navBar";
+import { useTranslateWidget } from '../../../contexts/TranslateWidgetContext';
+import BarcodeScanner from '../../BarcodeScanner/BarcodeScanner';
 
 function StorePhotoCapture() {
   const { eventId, storeId } = useParams();
@@ -24,6 +26,10 @@ function StorePhotoCapture() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const webcamRef = useRef(null);
   const [currentPhotoDescription, setCurrentPhotoDescription] = useState("");
+  const [cameraPermission, setCameraPermission] = useState(false);
+  const { setIsWidgetVisible } = useTranslateWidget();
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [scannedAsset, setScannedAsset] = useState(null);
 
   // Cấu hình camera
   const videoConstraints = {
@@ -195,166 +201,202 @@ function StorePhotoCapture() {
     };
   }, [hasUnsavedChanges]);
 
-  // Lấy vị trí hiện tại
-  const getCurrentLocation = () => {
+  // Tối ưu hàm lấy vị trí
+  const getCurrentLocation = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error("Trình duyệt không hỗ trợ định vị"));
+        reject(new Error('Geolocation không được hỗ trợ'));
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
-          resolve({ latitude, longitude });
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
         },
         (error) => {
-          console.error("Geolocation error:", error);
-          reject(new Error("Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập vị trí"));
+          reject(new Error('Không thể lấy vị trí: ' + error.message));
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 5000,
           maximumAge: 0
         }
       );
     });
-  };
+  }, []);
 
-  // Xử lý chụp ảnh
-  const handleCapture = async (photoType) => {
+  // Kiểm tra và yêu cầu quyền camera
+  const requestCameraPermission = useCallback(async () => {
     try {
-      // Kiểm tra quyền truy cập
-      if (permissionStatus.camera !== "granted") {
-        throw new Error("Vui lòng cấp quyền truy cập camera");
-      }
-      if (permissionStatus.location !== "granted") {
-        throw new Error("Vui lòng cấp quyền truy cập vị trí");
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraPermission(true);
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      console.error("Camera permission error:", err);
+      setError("Vui lòng cấp quyền truy cập camera");
+      setCameraPermission(false);
+    }
+  }, []);
 
-      // Lấy vị trí trước khi chụp
-      const currentLocation = await getCurrentLocation();
-      setLocation(currentLocation);
-      
-      // Tìm description của loại ảnh từ photoTypes
-      const photoTypeInfo = photoTypes.find(type => type.type_id === photoType);
-      setCurrentPhotoDescription(photoTypeInfo?.description || "");
-      
+  // Xử lý khi người dùng click nút chụp ảnh
+  const handleCapture = useCallback(async (photoType, description) => {
+    try {
+      if (!cameraPermission) {
+        await requestCameraPermission();
+      }
       setCurrentPhotoType(photoType);
+      setCurrentPhotoDescription(description);
       setShowCamera(true);
+      setIsWidgetVisible(false);
       setError(null);
     } catch (error) {
       setError(error.message);
       console.error("Error in handleCapture:", error);
     }
-  };
+  }, [cameraPermission, requestCameraPermission, setIsWidgetVisible]);
 
-  // Xử lý khi chụp ảnh xong
-  const handleTakePhoto = async () => {
+  // Tối ưu hàm chụp ảnh
+  const handleTakePhoto = useCallback(async () => {
     try {
       if (!webcamRef.current) {
-        throw new Error("Camera không khả dụng");
+        throw new Error("Camera không sẵn sàng");
       }
 
+      // Chụp ảnh ngay lập tức
       const imageSrc = webcamRef.current.getScreenshot();
       if (!imageSrc) {
         throw new Error("Không thể chụp ảnh");
       }
 
-      // Lấy vị trí hiện tại
-      const currentLocation = await getCurrentLocation();
+      // Lấy vị trí
+      const location = await getCurrentLocation();
 
       // Cập nhật state
       setPhotos(prev => ({
         ...prev,
         [currentPhotoType]: {
           image: imageSrc,
-          location: currentLocation
+          location: location
         }
       }));
 
       setShowCamera(false);
+      setIsWidgetVisible(true);
       setError(null);
+      setHasUnsavedChanges(true);
     } catch (error) {
       setError(error.message);
       console.error("Error taking photo:", error);
     }
+  }, [currentPhotoType]);
+
+  // Camera Modal Component
+  const CameraModal = () => {
+    if (!showCamera) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col">
+        <div className="relative flex-1">
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            }}
+            className="w-full h-full object-cover"
+            onUserMediaError={(err) => {
+              console.error("Webcam error:", err);
+              setError("Không thể truy cập camera");
+              setShowCamera(false);
+            }}
+          />
+
+          {/* Location info */}
+          {location && (
+            <div className="absolute top-16 left-0 right-0 px-4">
+              <div className="bg-black/50 p-3 rounded-lg inline-flex items-center">
+                <FaMapMarkerAlt className="text-red-500 mr-2" />
+                <p className="text-red-500 text-sm font-medium">
+                  {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Description above camera button */}
+          <div className="absolute bottom-0 left-0 right-0">
+            <div className="relative px-6 pb-4">
+              <div className="bg-black/50 p-3 rounded-lg mb-4 max-w-md mx-auto">
+                <h3 className="text-white font-medium text-center mb-1">
+                  {photoTypes.find(type => type.type_id === currentPhotoType)?.name}
+                </h3>
+                <p className="text-gray-200 text-sm text-center">
+                  {currentPhotoDescription}
+                </p>
+              </div>
+
+              {/* Camera Controls */}
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={() => setShowCamera(false)}
+                  className="p-3 bg-red-600 rounded-full text-white"
+                >
+                  <FaTimes size={24} />
+                </button>
+                <button
+                  onClick={handleTakePhoto}
+                  className="p-3 bg-white rounded-full"
+                >
+                  <FaCamera size={24} className="text-gray-900" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Guide lines overlay */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="w-full h-full border-2 border-white/30 m-auto" />
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Component Camera với giao diện mới
-  const CameraModal = () => (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 to-transparent h-32" />
-        
-        <div className="relative p-4">
-          <button
-            onClick={() => setShowCamera(false)}
-            className="text-white hover:text-red-500 transition-colors"
-          >
-            <FaTimes size={24} />
-          </button>
-        </div>
-      </div>
+  // Xử lý khi quét được mã vạch
+  const handleBarcodeDetected = async (code) => {
+    try {
+      // Gọi API để lấy thông tin tài sản
+      const response = await fetch(`https://ten-p521.onrender.com/asset/${code}`);
+      if (!response.ok) throw new Error('Không tìm thấy thông tin tài sản');
+      
+      const assetData = await response.json();
+      setScannedAsset(assetData);
+      setShowBarcodeScanner(false);
+      setIsWidgetVisible(true);
 
-      {/* Camera View */}
-      <div className="relative flex-1">
-        <Webcam
-          audio={false}
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          videoConstraints={videoConstraints}
-          className="w-full h-full object-cover"
-        />
+      // Cập nhật thông tin tài sản cho cửa hàng
+      await fetch(`https://ten-p521.onrender.com/store-assets/${storeId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          asset_id: code,
+          event_id: eventId
+        })
+      });
 
-        {/* Location info */}
-        {location && (
-          <div className="absolute top-16 left-0 right-0 px-4">
-            <div className="bg-black/50 p-3 rounded-lg inline-flex items-center">
-              <FaMapMarkerAlt className="text-red-500 mr-2" />
-              <p className="text-red-500 text-sm font-medium">
-                {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Camera UI Controls */}
-        <div className="absolute bottom-0 left-0 right-0">
-          {/* Gradient overlay cho controls */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent h-48" />
-          
-          {/* Description above camera button */}
-          <div className="relative px-6 pb-4">
-            <div className="bg-black/50 p-3 rounded-lg mb-4 max-w-md mx-auto">
-              <h3 className="text-white font-medium text-center mb-1">
-                {photoTypes.find(type => type.type_id === currentPhotoType)?.name}
-              </h3>
-              <p className="text-gray-200 text-sm text-center">
-                {currentPhotoDescription}
-              </p>
-            </div>
-
-            {/* Camera button */}
-            <div className="flex justify-center">
-              <button
-                onClick={handleTakePhoto}
-                className="w-16 h-16 bg-white rounded-full flex items-center justify-center transform transition-transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-white/50"
-              >
-                <FaCamera size={24} className="text-gray-900" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Guide lines overlay */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="w-full h-full border-2 border-white/30 m-auto" />
-        </div>
-      </div>
-    </div>
-  );
+    } catch (error) {
+      console.error('Error scanning barcode:', error);
+      alert('Không tìm thấy thông tin tài sản với mã này');
+    }
+  };
 
   // Hiển thị lỗi
   if (error) {
@@ -400,6 +442,12 @@ function StorePhotoCapture() {
     return null;
   };
 
+  // Cập nhật khi đóng camera
+  const handleCloseCamera = () => {
+    setShowCamera(false);
+    setIsWidgetVisible(true);
+  };
+
   // Cập nhật hiển thị ảnh đã chụp
   const PhotoDisplay = ({ type, imageUrl }) => (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -419,41 +467,33 @@ function StorePhotoCapture() {
     </div>
   );
 
-  // Cập nhật hàm handleSubmit để xử lý trạng thái
-  const handleSubmit = async () => {
+  // Tối ưu hàm submit
+  const handleSubmit = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Upload ảnh
-      const photoUploadPromises = Object.entries(photos).map(([type, data]) => {
-        if (data) {
-          return fetch(
-            `https://ten-p521.onrender.com/store-audit-images/${storeId}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                image_url: data.image,
-                image_type: type,
-                location: data.location,
-                event_id: eventId,
-              }),
-            }
-          );
-        }
-        return Promise.resolve();
-      });
+      // Upload tất cả ảnh song song
+      await Promise.all(
+        Object.entries(photos).map(([type, data]) => {
+          if (!data) return Promise.resolve();
+          
+          return fetch(`https://ten-p521.onrender.com/store-audit-images/${storeId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image_url: data.image,
+              image_type: type,
+              location: data.location,
+              event_id: eventId,
+            }),
+          });
+        })
+      );
 
-      await Promise.all(photoUploadPromises);
-
-      // Cập nhật trạng thái cửa hàng
+      // Cập nhật trạng thái
       await fetch(`https://ten-p521.onrender.com/store-event-status`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           store_id: storeId,
           eventid: eventId,
@@ -463,14 +503,14 @@ function StorePhotoCapture() {
 
       setHasUnsavedChanges(false);
       alert("Cập nhật thông tin thành công!");
-      navigate(`/store-gallery/${eventId}/${storeId}`);
+      navigate(`/event-detail/${eventId}`);
     } catch (error) {
       console.error("Error submitting data:", error);
       alert("Có lỗi xảy ra khi cập nhật thông tin!");
     } finally {
       setLoading(false);
     }
-  };
+  }, [photos, storeId, eventId, navigate]);
 
   // Thêm hàm xử lý khi người dùng muốn thoát có chủ đích
   const handleExit = () => {
@@ -597,7 +637,7 @@ function StorePhotoCapture() {
                       />
                     ) : (
                       <button
-                        onClick={() => handleCapture(type.type_id)}
+                        onClick={() => handleCapture(type.type_id, type.description)}
                         className="w-full aspect-[4/3] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-red-500 transition-colors bg-white group"
                       >
                         <div className="transform group-hover:scale-110 transition-transform">
@@ -613,21 +653,46 @@ function StorePhotoCapture() {
         </div>
 
         {/* Camera Modal */}
-        {showCamera && <CameraModal />}
+        <CameraModal />
 
-        {/* Submit Button */}
-        {Object.values(photos).some((photo) => photo) && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg">
-            <div className="container mx-auto px-4 max-w-4xl">
-              <button
-                onClick={handleSubmit}
-                className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
-              >
-                Hoàn thành
-              </button>
+        {/* Scanned Asset Info */}
+        {scannedAsset && (
+          <div className="p-4 mb-4 bg-white rounded-lg shadow">
+            <h3 className="text-lg font-medium mb-2">Thông tin tài sản đã quét</h3>
+            <div className="space-y-2">
+              <p><span className="font-medium">Mã tài sản:</span> {scannedAsset.mataisan}</p>
+              <p><span className="font-medium">Loại:</span> {scannedAsset.loai}</p>
+              <p><span className="font-medium">Seri:</span> {scannedAsset.seri}</p>
+              <p><span className="font-medium">Tình trạng:</span> {scannedAsset.tinhtrang}</p>
             </div>
           </div>
         )}
+
+        {/* Thêm nút quét mã vạch */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-up">
+          <div className="container mx-auto flex justify-between items-center">
+            <button
+              onClick={() => {
+                setShowBarcodeScanner(true);
+                setIsWidgetVisible(false);
+              }}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg"
+            >
+              <FaBarcode className="mr-2" />
+              Quét mã vạch
+            </button>
+            
+            {/* Submit Button */}
+            {Object.values(photos).some((photo) => photo) && (
+              <button
+                onClick={handleSubmit}
+                className="px-6 py-2 bg-red-600 text-white rounded-full"
+              >
+                Hoàn thành
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Hiển thị vị trí hiện tại nếu có */}
         {location && (
@@ -641,6 +706,16 @@ function StorePhotoCapture() {
           </div>
         )}
       </div>
+
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          onDetected={handleBarcodeDetected}
+          onClose={() => {
+            setShowBarcodeScanner(false);
+            setIsWidgetVisible(true);
+          }}
+        />
+      )}
     </div>
   );
 }

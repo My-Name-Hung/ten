@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../Navbar/navBar';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { FaMapMarkerAlt, FaStore, FaImages } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaStore, FaImages, FaTimes, FaArrowLeft } from 'react-icons/fa';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { useTranslateWidget } from '../../../contexts/TranslateWidgetContext';
 
 // Fix Leaflet icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -19,12 +20,14 @@ L.Icon.Default.mergeOptions({
 
 function StoreGallery() {
   const { eventId, storeId } = useParams();
+  const navigate = useNavigate();
   const [storeInfo, setStoreInfo] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [storeStatus, setStoreStatus] = useState(null);
+  const { setIsWidgetVisible } = useTranslateWidget();
 
   // Fetch store info
   useEffect(() => {
@@ -40,19 +43,24 @@ function StoreGallery() {
     fetchStoreInfo();
   }, [storeId]);
 
-  // Fetch photos and location
+  // Fetch photos
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
         const response = await fetch(`https://ten-p521.onrender.com/store-audit-images/${storeId}/${eventId}`);
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        setPhotos(data);
         
-        // Get location from the first photo
-        if (data.length > 0 && data[0].location) {
-          setLocation(data[0].location);
-        }
+        // Transform data to ensure location is properly structured
+        const transformedPhotos = data.map(photo => ({
+          ...photo,
+          location: {
+            latitude: parseFloat(photo.latitude),
+            longitude: parseFloat(photo.longitude)
+          }
+        }));
         
+        setPhotos(transformedPhotos);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching photos:', error);
@@ -111,6 +119,21 @@ function StoreGallery() {
     );
   };
 
+  const handleBack = () => {
+    navigate(`/event-detail/${eventId}`);
+  };
+
+  // Cập nhật khi mở/đóng modal ảnh
+  const handleOpenModal = (photo) => {
+    setSelectedPhoto(photo);
+    setIsWidgetVisible(false);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedPhoto(null);
+    setIsWidgetVisible(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -125,10 +148,18 @@ function StoreGallery() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
-      <div className="container mx-auto px-4 py-6 max-w-5xl">
-        {/* Store Info Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors"
+        >
+          <FaArrowLeft />
+          <span>Quay lại</span>
+        </button>
+
+        {/* Store Info Card */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <FaStore className="text-red-600 text-xl" />
             <h2 className="text-xl font-semibold text-gray-800">
@@ -136,149 +167,108 @@ function StoreGallery() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Tên cửa hàng</p>
-                <p className="font-medium text-gray-800">{storeInfo?.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Mã cửa hàng</p>
-                <p className="font-medium text-gray-800">{storeInfo?.store_id}</p>
-              </div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <p className="text-gray-600">Tên cửa hàng: <span className="font-medium text-gray-900">{storeInfo?.name}</span></p>
+              <p className="text-gray-600 pt-2">Mã cửa hàng: <span className='font-medium text-gray-900'>{storeInfo?.store_id}</span></p>
+              <p className="text-gray-600 pt-2">Địa chỉ: <span className='font-medium text-gray-900'>{storeInfo?.address}</span></p>
             </div>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Địa chỉ</p>
-                <p className="font-medium text-gray-800">{storeInfo?.address}</p>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">Trạng thái</p>
-                {getStatusBadge(storeStatus)}
-              </div>
-            </div>
+            {getStatusBadge(storeStatus)}
           </div>
         </div>
 
-        {/* Location Section */}
-        {location && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <FaMapMarkerAlt className="text-red-600 text-xl" />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Vị trí cửa hàng
-              </h2>
-            </div>
-            
-            <div className="h-[400px] rounded-lg overflow-hidden">
-              <MapContainer
-                center={[location.latitude, location.longitude]}
-                zoom={16}
-                className="h-full w-full"
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
-                <Marker position={[location.latitude, location.longitude]}>
-                  <Popup>
-                    <div className="text-center">
-                      <p className="font-medium">{storeInfo?.name}</p>
-                      <p className="text-sm text-gray-600">{storeInfo?.address}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              </MapContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Gallery Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-6">
+        {/* Photos Grid - Updated for better mobile display */}
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center gap-3 mb-4">
             <FaImages className="text-red-600 text-xl" />
             <h2 className="text-xl font-semibold text-gray-800">
               Hình ảnh cửa hàng
             </h2>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {photos.map((photo, index) => (
               <div
                 key={index}
                 className="relative bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer group"
-                onClick={() => setSelectedPhoto(photo)}
+                onClick={() => handleOpenModal(photo)}
               >
                 {/* Location Overlay */}
-                {photo.location && (
-                  <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 p-3">
-                    <p className="text-red-500 font-medium text-sm flex items-center">
-                      <FaMapMarkerAlt className="mr-2" />
-                      Lat: {photo.location.latitude.toFixed(5)}, Long: {photo.location.longitude.toFixed(5)}
-                    </p>
+                {(photo.latitude || photo.longitude) && (
+                  <div className="absolute top-0 left-0 right-0 z-10">
+                    <div className="bg-black/50 p-1.5 text-xs">
+                      <p className="text-red-500 font-medium flex items-center">
+                        <FaMapMarkerAlt className="mr-1 text-xs" />
+                        {parseFloat(photo.latitude).toFixed(5)},
+                        {parseFloat(photo.longitude).toFixed(5)}
+                      </p>
+                    </div>
                   </div>
                 )}
 
                 {/* Image */}
-                <img
-                  src={photo.image_url}
-                  alt={photo.title}
-                  className="w-full aspect-[4/3] object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+                <div className="aspect-square overflow-hidden">
+                  <img
+                    src={photo.image_url}
+                    alt={photo.title}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </div>
 
-                {/* Image Info */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                  <h3 className="text-white font-medium">
-                    {photo.title || (
-                      photo.image_type === 'mattien' ? 'Hình mặt tiền' :
-                      photo.image_type === 'tongquan' ? 'Hình tổng quan' :
-                      'Hình bổ sung'
-                    )}
-                  </h3>
+                {/* Image Type Label */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                  <p className="text-white text-xs font-medium truncate">
+                    {photo.image_type === 'mattien' ? 'Mặt tiền' :
+                     photo.image_type === 'tongquan' ? 'Tổng quan' :
+                     'Bổ sung'}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Full Image Modal */}
-      {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <div className="max-w-5xl w-full relative">
-            {/* Location in Modal */}
-            {selectedPhoto.location && (
-              <div className="absolute top-4 left-4 z-10 bg-black/50 px-4 py-2 rounded-lg">
-                <p className="text-red-500 font-medium text-sm flex items-center">
-                  <FaMapMarkerAlt className="mr-2" />
-                  Lat: {selectedPhoto.location.latitude.toFixed(5)}, Long: {selectedPhoto.location.longitude.toFixed(5)}
-                </p>
+        {/* Full Image Modal - Keep existing modal code */}
+        {selectedPhoto && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            onClick={handleCloseModal}
+          >
+            <div className="max-w-4xl w-full relative">
+              {/* Close Button */}
+              <button
+                onClick={handleCloseModal}
+                className="absolute -top-12 right-0 text-white hover:text-red-500 transition-colors z-[1000] p-2"
+              >
+                <FaTimes size={24} />
+              </button>
+
+              {/* Location Overlay */}
+              {(selectedPhoto.latitude || selectedPhoto.longitude) && (
+                <div className="absolute top-0 left-0 right-0 z-10">
+                  <div className="bg-black/50 p-3 inline-block rounded-br-lg">
+                    <p className="text-red-500 font-medium text-sm flex items-center">
+                      <FaMapMarkerAlt className="mr-2" />
+                      Lat: {parseFloat(selectedPhoto.latitude).toFixed(5)}, 
+                      Long: {parseFloat(selectedPhoto.longitude).toFixed(5)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Image */}
+              <div className="relative rounded-lg overflow-hidden">
+                <img
+                  src={selectedPhoto.image_url}
+                  alt={selectedPhoto.title}
+                  className="w-full h-auto max-h-[85vh] object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
               </div>
-            )}
-
-            <img
-              src={selectedPhoto.image_url}
-              alt={selectedPhoto.title}
-              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-
-            {/* Close button */}
-            <button
-              className="absolute top-2 right-2 text-white hover:text-red-500 transition-colors"
-              onClick={() => setSelectedPhoto(null)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
