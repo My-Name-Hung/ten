@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import NavBar from "../Navbar/navBar";
 import "./Reset.css";
 
 //  Import icon
@@ -103,7 +102,6 @@ const Reset = () => {
 
   return (
     <div>
-      <NavBar />
       <div className="resetPage">
         <div className="resetContainer">
           <h2>Đổi Mật Khẩu</h2>

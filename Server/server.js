@@ -856,43 +856,82 @@ app.put("/store-event-status", async (req, res) => {
   }
 });
 
-// API lấy danh sách cửa hàng theo quyền
-app.get("/stores", authenticateToken, async (req, res) => {
+// API lấy danh sách cửa hàng và sự kiện theo quyền
+app.get("/stores-and-events", authenticateToken, async (req, res) => {
   try {
-    let query = '';
+    let storeQuery = '';
     const params = [];
 
     switch (req.user.role_name) {
       case 'SR':
       case 'SO':
-        query = `
-          SELECT i.* 
+        storeQuery = `
+          SELECT DISTINCT 
+            i.*,
+            e.eventid,
+            e.event_name,
+            e.start_time,
+            e.end_time,
+            GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
+            ses.status_type
           FROM info i
           JOIN user_store us ON i.store_id = us.store_id
+          LEFT JOIN store_events se ON i.store_id = se.store_id
+          LEFT JOIN event e ON se.eventid = e.eventid
+          LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
+            AND e.eventid = ses.eventid
           WHERE us.username = $1
+          ORDER BY e.start_time DESC
         `;
         params.push(req.user.username);
         break;
 
       case 'TSM':
-        query = `
-          SELECT DISTINCT i.* 
+        storeQuery = `
+          SELECT DISTINCT 
+            i.*,
+            e.eventid,
+            e.event_name,
+            e.start_time,
+            e.end_time,
+            GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
+            ses.status_type,
+            us.username as assigned_to
           FROM info i
           JOIN user_store us ON i.store_id = us.store_id
           JOIN user_hierarchy uh ON us.username = uh.user_id
+          LEFT JOIN store_events se ON i.store_id = se.store_id
+          LEFT JOIN event e ON se.eventid = e.eventid
+          LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
+            AND e.eventid = ses.eventid
           WHERE uh.manager_id = $1
+          ORDER BY us.username, e.start_time DESC
         `;
         params.push(req.user.username);
         break;
 
       case 'ASM':
-        query = `
-          SELECT DISTINCT i.* 
+        storeQuery = `
+          SELECT DISTINCT 
+            i.*,
+            e.eventid,
+            e.event_name,
+            e.start_time,
+            e.end_time,
+            GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
+            ses.status_type,
+            us.username as assigned_to,
+            uh1.manager_id as tsm_id
           FROM info i
           JOIN user_store us ON i.store_id = us.store_id
           JOIN user_hierarchy uh1 ON us.username = uh1.user_id
           JOIN user_hierarchy uh2 ON uh1.manager_id = uh2.user_id
+          LEFT JOIN store_events se ON i.store_id = se.store_id
+          LEFT JOIN event e ON se.eventid = e.eventid
+          LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
+            AND e.eventid = ses.eventid
           WHERE uh2.manager_id = $1
+          ORDER BY uh1.manager_id, us.username, e.start_time DESC
         `;
         params.push(req.user.username);
         break;
@@ -901,54 +940,120 @@ app.get("/stores", authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Không có quyền truy cập' });
     }
 
-    const result = await db.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching stores:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy danh sách cửa hàng' });
-  }
-});
+    const result = await db.query(storeQuery, params);
 
-// API lấy danh sách nhân viên theo quyền
-app.get("/users", authenticateToken, async (req, res) => {
-  try {
-    let query = '';
-    const params = [];
-
-    switch (req.user.role_name) {
-      case 'TSM':
-        query = `
-          SELECT u.username, u.created_at, r.role_name
-          FROM users u
-          JOIN roles r ON u.role_id = r.role_id
-          JOIN user_hierarchy uh ON u.username = uh.user_id
-          WHERE uh.manager_id = $1 AND r.role_name IN ('SR', 'SO')
-        `;
-        params.push(req.user.username);
-        break;
-
-      case 'ASM':
-        query = `
-          SELECT u.username, u.created_at, r.role_name
-          FROM users u
-          JOIN roles r ON u.role_id = r.role_id
-          JOIN user_hierarchy uh1 ON u.username = uh1.user_id
-          JOIN user_hierarchy uh2 ON uh1.manager_id = uh2.user_id
-          WHERE uh2.manager_id = $1 
-          AND r.role_name IN ('SR', 'SO', 'TSM')
-        `;
-        params.push(req.user.username);
-        break;
-
-      default:
-        return res.status(403).json({ error: 'Không có quyền truy cập' });
+    // Kiểm tra nếu không có dữ liệu cho SR hoặc SO
+    if ((req.user.role_name === 'SR' || req.user.role_name === 'SO') && result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Bạn chưa có cửa hàng nào được đăng ký, vui lòng liên hệ MKT!'
+      });
     }
 
-    const result = await db.query(query, params);
-    res.json(result.rows);
+    // Xử lý và định dạng dữ liệu trả về
+    const formattedData = {};
+    
+    if (req.user.role_name === 'SR' || req.user.role_name === 'SO') {
+      // Format cho SR và SO: Nhóm theo cửa hàng
+      result.rows.forEach(row => {
+        if (!formattedData[row.store_id]) {
+          formattedData[row.store_id] = {
+            store_info: {
+              store_id: row.store_id,
+              store_name: row.store_name,
+              address: row.address,
+              // thêm các thông tin cửa hàng khác
+            },
+            events: []
+          };
+        }
+        if (row.eventid) {
+          formattedData[row.store_id].events.push({
+            event_id: row.eventid,
+            event_name: row.event_name,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            days_remaining: row.days_remaining,
+            status: row.status_type
+          });
+        }
+      });
+    } else if (req.user.role_name === 'TSM') {
+      // Format cho TSM: Nhóm theo nhân viên
+      result.rows.forEach(row => {
+        if (!formattedData[row.assigned_to]) {
+          formattedData[row.assigned_to] = {
+            stores: {}
+          };
+        }
+        if (!formattedData[row.assigned_to].stores[row.store_id]) {
+          formattedData[row.assigned_to].stores[row.store_id] = {
+            store_info: {
+              store_id: row.store_id,
+              store_name: row.store_name,
+              address: row.address
+            },
+            events: []
+          };
+        }
+        if (row.eventid) {
+          formattedData[row.assigned_to].stores[row.store_id].events.push({
+            event_id: row.eventid,
+            event_name: row.event_name,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            days_remaining: row.days_remaining,
+            status: row.status_type
+          });
+        }
+      });
+    } else if (req.user.role_name === 'ASM') {
+      // Format cho ASM: Nhóm theo TSM và nhân viên
+      result.rows.forEach(row => {
+        if (!formattedData[row.tsm_id]) {
+          formattedData[row.tsm_id] = {
+            sales_reps: {}
+          };
+        }
+        if (!formattedData[row.tsm_id].sales_reps[row.assigned_to]) {
+          formattedData[row.tsm_id].sales_reps[row.assigned_to] = {
+            stores: {}
+          };
+        }
+        if (!formattedData[row.tsm_id].sales_reps[row.assigned_to].stores[row.store_id]) {
+          formattedData[row.tsm_id].sales_reps[row.assigned_to].stores[row.store_id] = {
+            store_info: {
+              store_id: row.store_id,
+              store_name: row.store_name,
+              address: row.address
+            },
+            events: []
+          };
+        }
+        if (row.eventid) {
+          formattedData[row.tsm_id].sales_reps[row.assigned_to].stores[row.store_id].events.push({
+            event_id: row.eventid,
+            event_name: row.event_name,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            days_remaining: row.days_remaining,
+            status: row.status_type
+          });
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      role: req.user.role_name,
+      data: formattedData
+    });
+
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy danh sách người dùng' });
+    console.error('Error fetching stores and events:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Lỗi khi lấy danh sách cửa hàng và sự kiện' 
+    });
   }
 });
 
