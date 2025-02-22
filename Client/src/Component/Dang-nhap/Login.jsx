@@ -28,8 +28,37 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPopup, setShowPopup] = useState(false);
 
-  const togglePasswordVisibility = () => {
-    setPasswordVisible(!passwordVisible);
+  const handleLogin = async (userData) => {
+    try {
+      // Lưu thông tin user vào localStorage
+      localStorage.setItem("token", userData.token);
+      localStorage.setItem("username", userData.username);
+      localStorage.setItem("role", userData.role);
+
+      // Kiểm tra nếu cần đổi mật khẩu
+      if (userData.mustChangePassword) {
+        navigate("/doi-mat-khau");
+        return;
+      }
+
+      // Điều hướng dựa trên role
+      switch (userData.role) {
+        case 'SR':
+        case 'SO':
+          setShowPopup(true); // Hiển thị NavigationPopup cho SR và SO
+          break;
+        case 'TSM':
+          navigate("/tsm-dashboard");
+          break;
+        case 'ASM':
+          navigate("/asm-dashboard");
+          break;
+        default:
+          throw new Error("Không xác định được quyền truy cập");
+      }
+    } catch (error) {
+      setError(error.message);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -45,24 +74,19 @@ const Login = () => {
           username: event.target.username.value,
           password: password,
         }),
-        credentials: "include",
       });
 
-      if (!response.ok) {
-        throw new Error("Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!");
-      }
-
       const data = await response.json();
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("username", event.target.username.value);
 
-      if (data.mustChangePassword) {
-        navigate("/doi-mat-khau");
-      } else {
-        setShowPopup(true);
+      if (!response.ok) {
+        throw new Error(data.error || "Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!");
       }
+
+      await handleLogin(data);
+      
     } catch (error) {
       setError(error.message);
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +138,7 @@ const Login = () => {
                   />
                   <button
                     type="button"
-                    onClick={togglePasswordVisibility}
+                    onClick={() => setPasswordVisible(!passwordVisible)}
                     className="passwordToggleBtn"
                   >
                     {passwordVisible ? (
@@ -126,7 +150,7 @@ const Login = () => {
                 </div>
 
                 {error && (
-                  <div className="text-white pt-4 max-w-[20rem]">{error}</div>
+                  <div className="text-red-500 pt-4 max-w-[20rem]">{error}</div>
                 )}
 
                 <button
@@ -135,7 +159,13 @@ const Login = () => {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    "Signing in..."
+                    <span className="flex items-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Đang đăng nhập...
+                    </span>
                   ) : (
                     <>
                       <span>Đăng nhập</span>
@@ -145,10 +175,9 @@ const Login = () => {
                 </button>
 
                 <span className="forgotPassword">
-                  <a>
-                    {" "}
+                  <a href="#" className="text-gray-300 hover:text-white">
                     Quên mật khẩu? <br />
-                    Liên hệ MKT hoặc TSM để được hỗ trợ{" "}
+                    Liên hệ MKT hoặc TSM để được hỗ trợ
                   </a>
                 </span>
               </div>
@@ -156,6 +185,8 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
       <footer className="bg-red-600 top-0 text-center flex justify-between items-center">
         <div className="bg-red-600 flex items-center">
           <a
@@ -185,7 +216,11 @@ const Login = () => {
         </div>
       </footer>
 
-      <NavigationPopup isOpen={showPopup} onClose={() => setShowPopup(false)} />
+      {/* Navigation Popup */}
+      <NavigationPopup 
+        isOpen={showPopup} 
+        onClose={() => setShowPopup(false)} 
+      />
     </>
   );
 };

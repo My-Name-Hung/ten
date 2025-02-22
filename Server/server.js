@@ -859,13 +859,13 @@ app.put("/store-event-status", async (req, res) => {
 // API lấy danh sách cửa hàng và sự kiện theo quyền
 app.get("/stores-and-events", authenticateToken, async (req, res) => {
   try {
-    let storeQuery = '';
+    let query = '';
     const params = [];
 
     switch (req.user.role_name) {
       case 'SR':
       case 'SO':
-        storeQuery = `
+        query = `
           SELECT DISTINCT 
             i.*,
             e.eventid,
@@ -874,20 +874,20 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
             e.end_time,
             GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
             ses.status_type
-          FROM info i
-          JOIN user_store us ON i.store_id = us.store_id
+          FROM user_store us
+          JOIN info i ON us.store_id = i.store_id
           LEFT JOIN store_events se ON i.store_id = se.store_id
           LEFT JOIN event e ON se.eventid = e.eventid
           LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
             AND e.eventid = ses.eventid
           WHERE us.username = $1
-          ORDER BY e.start_time DESC
+          ORDER BY i.store_id, e.start_time DESC
         `;
         params.push(req.user.username);
         break;
 
       case 'TSM':
-        storeQuery = `
+        query = `
           SELECT DISTINCT 
             i.*,
             e.eventid,
@@ -897,21 +897,21 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
             GREATEST(0, DATE_PART('day', e.end_time - NOW())) AS days_remaining,
             ses.status_type,
             us.username as assigned_to
-          FROM info i
-          JOIN user_store us ON i.store_id = us.store_id
-          JOIN user_hierarchy uh ON us.username = uh.user_id
+          FROM user_hierarchy uh
+          JOIN user_store us ON uh.user_id = us.username
+          JOIN info i ON us.store_id = i.store_id
           LEFT JOIN store_events se ON i.store_id = se.store_id
           LEFT JOIN event e ON se.eventid = e.eventid
           LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
             AND e.eventid = ses.eventid
           WHERE uh.manager_id = $1
-          ORDER BY us.username, e.start_time DESC
+          ORDER BY us.username, i.store_id, e.start_time DESC
         `;
         params.push(req.user.username);
         break;
 
       case 'ASM':
-        storeQuery = `
+        query = `
           SELECT DISTINCT 
             i.*,
             e.eventid,
@@ -922,16 +922,16 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
             ses.status_type,
             us.username as assigned_to,
             uh1.manager_id as tsm_id
-          FROM info i
-          JOIN user_store us ON i.store_id = us.store_id
-          JOIN user_hierarchy uh1 ON us.username = uh1.user_id
-          JOIN user_hierarchy uh2 ON uh1.manager_id = uh2.user_id
+          FROM user_hierarchy uh2
+          JOIN user_hierarchy uh1 ON uh2.user_id = uh1.manager_id
+          JOIN user_store us ON uh1.user_id = us.username
+          JOIN info i ON us.store_id = i.store_id
           LEFT JOIN store_events se ON i.store_id = se.store_id
           LEFT JOIN event e ON se.eventid = e.eventid
           LEFT JOIN store_event_status ses ON i.store_id = ses.store_id 
             AND e.eventid = ses.eventid
           WHERE uh2.manager_id = $1
-          ORDER BY uh1.manager_id, us.username, e.start_time DESC
+          ORDER BY uh1.manager_id, us.username, i.store_id, e.start_time DESC
         `;
         params.push(req.user.username);
         break;
@@ -940,16 +940,17 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
         return res.status(403).json({ error: 'Không có quyền truy cập' });
     }
 
-    const result = await db.query(storeQuery, params);
+    const result = await db.query(query, params);
 
     // Kiểm tra nếu không có dữ liệu cho SR hoặc SO
     if ((req.user.role_name === 'SR' || req.user.role_name === 'SO') && result.rows.length === 0) {
       return res.status(404).json({
+        success: false,
         error: 'Bạn chưa có cửa hàng nào được đăng ký, vui lòng liên hệ MKT!'
       });
     }
 
-    // Xử lý và định dạng dữ liệu trả về
+    // Format dữ liệu trả về
     const formattedData = {};
     
     if (req.user.role_name === 'SR' || req.user.role_name === 'SO') {
@@ -960,8 +961,8 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
             store_info: {
               store_id: row.store_id,
               store_name: row.store_name,
-              address: row.address,
-              // thêm các thông tin cửa hàng khác
+              address: row.address
+              // Thêm các thông tin cửa hàng khác nếu cần
             },
             events: []
           };

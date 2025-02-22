@@ -1,10 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaUsers, FaCalendarAlt } from 'react-icons/fa';
+import { FaUsers, FaCalendarAlt, FaShoppingCart, FaGift } from 'react-icons/fa';
 import { LuScanBarcode } from "react-icons/lu";
 
 function NavigationPopup({ isOpen, onClose }) {
   const navigate = useNavigate();
+  const role = localStorage.getItem('role');
 
   const handleNavigation = (path) => {
     onClose();
@@ -68,6 +69,43 @@ function NavigationPopup({ isOpen, onClose }) {
               </p>
             </div>
           </button>
+
+          {/* Additional options for SO */}
+          {role === 'SO' && (
+            <>
+              {/* Option 4: Mua bán sản phẩm */}
+              <button
+                onClick={() => handleNavigation('/mua-ban')}
+                className="w-full flex items-center p-4 bg-white border-2 border-red-600 rounded-lg hover:bg-red-50 transition-colors group"
+              >
+                <FaShoppingCart className="text-2xl text-red-600 mr-4 group-hover:scale-110 transition-transform" />
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-red-800">
+                    Mua bán sản phẩm
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Quản lý giao dịch mua bán
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 5: Giao quà */}
+              <button
+                onClick={() => handleNavigation('/giao-qua')}
+                className="w-full flex items-center p-4 bg-white border-2 border-red-600 rounded-lg hover:bg-red-50 transition-colors group"
+              >
+                <FaGift className="text-2xl text-red-600 mr-4 group-hover:scale-110 transition-transform" />
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-red-800">
+                    Lộ trình giao thưởng
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Quản lý giao quà và phần thưởng
+                  </p>
+                </div>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
