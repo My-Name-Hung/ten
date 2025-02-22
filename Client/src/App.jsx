@@ -55,8 +55,9 @@ const ProtectedRoute = ({ element, allowedPaths }) => {
 
 function App() {
   return (
-    <TranslateWidgetProvider>
+    
       <BrowserRouter>
+      <TranslateWidgetProvider>
         <div className="app-container">
           <TranslateWidget />
           <Routes>
@@ -120,8 +121,8 @@ function App() {
             <Route path="/scanned-items" element={<ScannedItemsPage />} />
           </Routes>
         </div>
+        </TranslateWidgetProvider>
       </BrowserRouter>
-    </TranslateWidgetProvider>
   );
 }
 

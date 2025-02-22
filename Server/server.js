@@ -7,6 +7,7 @@ const cors = require("cors");
 app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
+const jwt = require('jsonwebtoken');
 
 // Setting cors
 app.use(
@@ -56,70 +57,74 @@ const loginLimiter = rateLimit({
   message: { error: "Hệ thống quá tải, hãy thử lại sau ít phút" },
 });
 
-// Add login endpoint
-app.post("/login", loginLimiter, async (req, res) => {
-  const { username, password } = req.body;
-
-  // Validate input
-  if (!username || !password) {
-    return res.status(400).json({ 
-      success: false,
-      message: "Username và password là bắt buộc" 
-    });
+// Middleware kiểm tra token và phân quyền
+const authenticateToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Không có token xác thực' });
   }
 
   try {
-    // Log để debug
-    console.log("Attempting login for username:", username);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userResult = await db.query(
+      `SELECT u.*, r.role_name 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.role_id 
+       WHERE u.username = $1`,
+      [decoded.username]
+    );
 
-    // Tìm người dùng theo username và password
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User không tồn tại' });
+    }
+
+    req.user = userResult.rows[0];
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Token không hợp lệ' });
+  }
+};
+
+// Cập nhật API login
+app.post("/login", loginLimiter, async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
     const result = await db.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      `SELECT u.*, r.role_name 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.role_id 
+       WHERE u.username = $1 AND u.password = $2`,
       [username, password]
     );
 
     if (result.rows.length === 0) {
-      console.log("No user found with provided credentials");
-      return res.status(401).json({
-        success: false,
-        message: "Tài khoản hoặc mật khẩu không đúng"
-      });
+      return res.status(401).json({ error: "Sai tên đăng nhập hoặc mật khẩu" });
     }
 
     const user = result.rows[0];
-    console.log("User found:", user.username);
-
-    // Kiểm tra trạng thái "must_change_password"
-    if (user.must_change_password) {
-      return res.status(200).json({
-        success: false,
-        message: "Bạn cần đổi mật khẩu trước khi truy cập hệ thống",
-        mustChangePassword: true,
-      });
-    }
-
-    // Cập nhật thời gian đăng nhập lần cuối
-    await db.query(
-      "UPDATE users SET last_login = NOW() WHERE id = $1",
-      [user.id]
+    const token = jwt.sign(
+      { username: user.username, role: user.role_name },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
     );
 
-    // Tạo và gửi token response
-    res.status(200).json({
-      success: true,
-      message: "Đăng nhập thành công",
-      mustChangePassword: false,
-      token: "your-token-here", // Thêm token nếu bạn đang sử dụng
-      username: user.username
-    });
+    // Cập nhật last_login
+    await db.query(
+      "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = $1",
+      [username]
+    );
 
-  } catch (error) {
-    console.error("Detailed login error:", error);
-    res.status(500).json({ 
-      success: false,
-      message: "Lỗi hệ thống",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.json({
+      token,
+      username: user.username,
+      role: user.role_name,
+      mustChangePassword: user.must_change_password
     });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Lỗi đăng nhập" });
   }
 });
 
@@ -848,6 +853,102 @@ app.put("/store-event-status", async (req, res) => {
   } catch (error) {
     console.error("Error updating store status:", error);
     res.status(500).json({ error: "Failed to update store status" });
+  }
+});
+
+// API lấy danh sách cửa hàng theo quyền
+app.get("/stores", authenticateToken, async (req, res) => {
+  try {
+    let query = '';
+    const params = [];
+
+    switch (req.user.role_name) {
+      case 'SR':
+      case 'SO':
+        query = `
+          SELECT i.* 
+          FROM info i
+          JOIN user_store us ON i.store_id = us.store_id
+          WHERE us.username = $1
+        `;
+        params.push(req.user.username);
+        break;
+
+      case 'TSM':
+        query = `
+          SELECT DISTINCT i.* 
+          FROM info i
+          JOIN user_store us ON i.store_id = us.store_id
+          JOIN user_hierarchy uh ON us.username = uh.user_id
+          WHERE uh.manager_id = $1
+        `;
+        params.push(req.user.username);
+        break;
+
+      case 'ASM':
+        query = `
+          SELECT DISTINCT i.* 
+          FROM info i
+          JOIN user_store us ON i.store_id = us.store_id
+          JOIN user_hierarchy uh1 ON us.username = uh1.user_id
+          JOIN user_hierarchy uh2 ON uh1.manager_id = uh2.user_id
+          WHERE uh2.manager_id = $1
+        `;
+        params.push(req.user.username);
+        break;
+
+      default:
+        return res.status(403).json({ error: 'Không có quyền truy cập' });
+    }
+
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching stores:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách cửa hàng' });
+  }
+});
+
+// API lấy danh sách nhân viên theo quyền
+app.get("/users", authenticateToken, async (req, res) => {
+  try {
+    let query = '';
+    const params = [];
+
+    switch (req.user.role_name) {
+      case 'TSM':
+        query = `
+          SELECT u.username, u.created_at, r.role_name
+          FROM users u
+          JOIN roles r ON u.role_id = r.role_id
+          JOIN user_hierarchy uh ON u.username = uh.user_id
+          WHERE uh.manager_id = $1 AND r.role_name IN ('SR', 'SO')
+        `;
+        params.push(req.user.username);
+        break;
+
+      case 'ASM':
+        query = `
+          SELECT u.username, u.created_at, r.role_name
+          FROM users u
+          JOIN roles r ON u.role_id = r.role_id
+          JOIN user_hierarchy uh1 ON u.username = uh1.user_id
+          JOIN user_hierarchy uh2 ON uh1.manager_id = uh2.user_id
+          WHERE uh2.manager_id = $1 
+          AND r.role_name IN ('SR', 'SO', 'TSM')
+        `;
+        params.push(req.user.username);
+        break;
+
+      default:
+        return res.status(403).json({ error: 'Không có quyền truy cập' });
+    }
+
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách người dùng' });
   }
 });
 
