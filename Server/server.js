@@ -143,7 +143,7 @@ app.post("/register", async (req, res) => {
   } = req.body;
 
   // Validation
-  if (!username || !password || !fullName || !phone) {
+  if (!username || !password || !fullName || !phone || !idCard) {
     console.log("Missing required fields");
     return res.status(400).json({
       success: false,
@@ -1199,24 +1199,19 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
 
 // Mobile Register API
 app.post("/mobile/register", async (req, res) => {
-  console.log("Received mobile registration request:", req.body);
-  
   const {
     phone,
     password,
     fullName,
     idCard,
-    province,
-    district,
-    ward,
-    street
+    address: { province, district, ward, street }
   } = req.body;
 
   // Validation
-  if (!phone || !password || !fullName) {
+  if (!phone || !password || !fullName || !idCard) {
     return res.status(400).json({
       success: false,
-      error: "Vui lòng điền đầy đủ thông tin bắt buộc"
+      message: "Vui lòng điền đầy đủ thông tin bắt buộc"
     });
   }
 
@@ -1232,22 +1227,39 @@ app.post("/mobile/register", async (req, res) => {
     );
 
     if (phoneExists.rows.length > 0) {
-      throw new Error("Số điện thoại đã được đăng ký");
+      throw new Error("Phone number already exists");
+    }
+
+    // Check if id_card exists
+    const idCardExists = await client.query(
+      'SELECT id_card FROM users_register WHERE id_card = $1',
+      [idCard]
+    );
+
+    if (idCardExists.rows.length > 0) {
+      throw new Error("ID card already exists");
     }
 
     // Insert into users_register
-    await client.query(
+    const registerResult = await client.query(
       `INSERT INTO users_register (
         phone, password, full_name, id_card,
-        province, district, ward, street
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        province, district, ward, street,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      RETURNING id`,
       [phone, password, fullName, idCard, province, district, ward, street]
     );
 
+    const userId = registerResult.rows[0].id;
+
     // Insert into users_login
     await client.query(
-      'INSERT INTO users_login (phone, password) VALUES ($1, $2)',
-      [phone, password]
+      `INSERT INTO users_login (
+        user_id, phone, password, 
+        created_at
+      ) VALUES ($1, $2, $3, NOW())`,
+      [userId, phone, password]
     );
 
     await client.query('COMMIT');
@@ -1260,10 +1272,23 @@ app.post("/mobile/register", async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error("Mobile registration error:", error);
-    res.status(400).json({
-      success: false,
-      error: error.message || "Đăng ký thất bại"
-    });
+    
+    if (error.message === "Phone number already exists") {
+      res.status(400).json({
+        success: false,
+        message: "Số điện thoại đã được đăng ký"
+      });
+    } else if (error.message === "ID card already exists") {
+      res.status(400).json({
+        success: false,
+        message: "Số CCCD đã được đăng ký"
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Đăng ký thất bại, vui lòng thử lại sau"
+      });
+    }
   } finally {
     client.release();
   }
@@ -1274,73 +1299,107 @@ app.post("/mobile/login", async (req, res) => {
   const { phone, password } = req.body;
 
   try {
-    const result = await db.query(
-      'SELECT * FROM users_login WHERE phone = $1 AND password = $2',
+    // Check login credentials
+    const userResult = await db.query(
+      `SELECT ul.*, ur.full_name, ur.id_card, ur.province, ur.district, ur.ward, ur.street
+       FROM users_login ul
+       JOIN users_register ur ON ul.user_id = ur.id 
+       WHERE ul.phone = $1 AND ul.password = $2`,
       [phone, password]
     );
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        error: "Số điện thoại hoặc mật khẩu không đúng"
+        message: "Số điện thoại hoặc mật khẩu không đúng"
       });
     }
 
+    const user = userResult.rows[0];
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.user_id,
+        phone: user.phone
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
     // Update last login
     await db.query(
-      'UPDATE users_login SET last_login = CURRENT_TIMESTAMP WHERE phone = $1',
-      [phone]
+      'UPDATE users_login SET last_login = NOW() WHERE user_id = $1',
+      [user.user_id]
     );
 
     res.json({
       success: true,
-      message: "Đăng nhập thành công"
+      message: "Đăng nhập thành công",
+      data: {
+        token,
+        user: {
+          id: user.user_id,
+          phone: user.phone,
+          fullName: user.full_name,
+          idCard: user.id_card,
+          address: {
+            province: user.province,
+            district: user.district, 
+            ward: user.ward,
+            street: user.street
+          }
+        }
+      }
     });
 
   } catch (error) {
     console.error("Mobile login error:", error);
     res.status(500).json({
       success: false,
-      error: "Đăng nhập thất bại"
+      message: "Đăng nhập thất bại, vui lòng thử lại sau"
     });
   }
 });
 
 // Mobile Forgot Password API
 app.post("/mobile/forgot-password", async (req, res) => {
-  const { phone, newPassword } = req.body;
+  const { phone, newPassword, idCard } = req.body;
+
+  const client = await db.connect();
 
   try {
-    // Kiểm tra số điện thoại tồn tại
+    await client.query('BEGIN');
+
+    // Kiểm tra số điện thoại và CCCD có khớp không
     const userExists = await db.query(
-      'SELECT phone FROM users_register WHERE phone = $1',
-      [phone]
+      'SELECT id FROM users_register WHERE phone = $1 AND id_card = $2',
+      [phone, idCard]
     );
 
     if (userExists.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: "Số điện thoại không tồn tại trong hệ thống"
-      });
+      throw new Error("invalid_credentials");
     }
 
-    // Cập nhật mật khẩu trong cả hai bảng
-    await db.query('BEGIN');
+    const userId = userExists.rows[0].id;
 
+    // Cập nhật mật khẩu trong cả hai bảng
     await db.query(
-      'UPDATE users_register SET password = $1 WHERE phone = $2',
-      [newPassword, phone]
+      'UPDATE users_register SET password = $1 WHERE id = $2',
+      [newPassword, userId]
     );
 
     await db.query(
-      'UPDATE users_login SET password = $1 WHERE phone = $2',
-      [newPassword, phone]
+      'UPDATE users_login SET password = $1 WHERE user_id = $2',
+      [newPassword, userId]
     );
 
     // Ghi log vào bảng user_forgot
     await db.query(
-      'INSERT INTO user_forgot (phone, reset_token) VALUES ($1, $2)',
-      [phone, 'mobile_reset']
+      `INSERT INTO user_forgot (
+        user_id, phone, reset_token, created_at
+      ) VALUES ($1, $2, $3, NOW())`,
+      [userId, phone, 'mobile_reset']
     );
 
     await db.query('COMMIT');
@@ -1353,10 +1412,20 @@ app.post("/mobile/forgot-password", async (req, res) => {
   } catch (error) {
     await db.query('ROLLBACK');
     console.error("Mobile forgot password error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Khôi phục mật khẩu thất bại"
-    });
+    
+    if (error.message === "invalid_credentials") {
+      res.status(400).json({
+        success: false,
+        message: "Số điện thoại hoặc CCCD không chính xác"
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Khôi phục mật khẩu thất bại, vui lòng thử lại sau"
+      });
+    }
+  } finally {
+    client.release();
   }
 });
 
