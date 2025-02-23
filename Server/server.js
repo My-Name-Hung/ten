@@ -1220,14 +1220,11 @@ app.post("/mobile/register", async (req, res) => {
     });
   }
 
-  let client;
   try {
-    client = await db.connect(); // Use db instead of pool
-
-    await client.query('BEGIN');
+    await db.query('BEGIN');
 
     // Check if phone exists
-    const phoneExists = await client.query(
+    const phoneExists = await db.query(
       'SELECT phone FROM users_register WHERE phone = $1',
       [phone]
     );
@@ -1237,7 +1234,7 @@ app.post("/mobile/register", async (req, res) => {
     }
 
     // Check if id_card exists
-    const idCardExists = await client.query(
+    const idCardExists = await db.query(
       'SELECT id_card FROM users_register WHERE id_card = $1',
       [idCard]
     );
@@ -1254,7 +1251,7 @@ app.post("/mobile/register", async (req, res) => {
     });
 
     // Insert into users_register
-    const registerResult = await client.query(
+    const registerResult = await db.query(
       `INSERT INTO users_register (
         phone, 
         password, 
@@ -1284,7 +1281,7 @@ app.post("/mobile/register", async (req, res) => {
     console.log('User registered successfully with ID:', userId);
 
     // Insert into users_login
-    await client.query(
+    await db.query(
       `INSERT INTO users_login (
         user_id,
         phone,
@@ -1294,7 +1291,7 @@ app.post("/mobile/register", async (req, res) => {
       [userId, phone, password]
     );
 
-    await client.query('COMMIT');
+    await db.query('COMMIT');
 
     console.log('Registration completed successfully');
 
@@ -1304,9 +1301,7 @@ app.post("/mobile/register", async (req, res) => {
     });
 
   } catch (error) {
-    if (client) {
-      await client.query('ROLLBACK');
-    }
+    await db.query('ROLLBACK');
     console.error("Mobile registration error:", error);
     
     if (error.message === "Phone number already exists") {
@@ -1326,10 +1321,6 @@ app.post("/mobile/register", async (req, res) => {
         message: "Đăng ký thất bại, vui lòng thử lại sau",
         error: error.message
       });
-    }
-  } finally {
-    if (client) {
-      client.release(); // Release the client back to the pool
     }
   }
 });
