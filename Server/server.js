@@ -8,6 +8,8 @@ app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const bcrypt = require('bcrypt');
 
 // Setting cors
 app.use(
@@ -1122,6 +1124,7 @@ app.post("/forgot-password", loginLimiter, async (req, res) => {
 
 
     // Cập nhật mật khẩu
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await client.query(
       `UPDATE users 
        SET password = $1,
@@ -1216,6 +1219,165 @@ app.get("/password-reset-history", authenticateToken, async (req, res) => {
       success: false,
       error: "Có lỗi xảy ra khi lấy lịch sử đổi mật khẩu"
     });
+  }
+});
+
+// API địa chỉ Việt Nam
+const PROVINCE_API = 'https://provinces.open-api.vn/api/p';
+const DISTRICT_API = 'https://provinces.open-api.vn/api/p';
+const WARD_API = 'https://provinces.open-api.vn/api/d';
+
+// Endpoint lấy danh sách tỉnh/thành phố
+app.get("/provinces", async (req, res) => {
+  try {
+    const response = await axios.get(PROVINCE_API);
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error("Error fetching provinces:", error);
+    res.status(500).json({
+      success: false,
+      error: "Không thể lấy danh sách tỉnh/thành phố"
+    });
+  }
+});
+
+// Endpoint lấy danh sách quận/huyện theo tỉnh
+app.get("/districts/:provinceCode", async (req, res) => {
+  try {
+    const { provinceCode } = req.params;
+    const response = await axios.get(`${DISTRICT_API}/${provinceCode}?depth=2`);
+    res.json({
+      success: true,
+      data: response.data.districts
+    });
+  } catch (error) {
+    console.error("Error fetching districts:", error);
+    res.status(500).json({
+      success: false,
+      error: "Không thể lấy danh sách quận/huyện"
+    });
+  }
+});
+
+// Endpoint lấy danh sách phường/xã theo quận/huyện
+app.get("/wards/:districtCode", async (req, res) => {
+  try {
+    const { districtCode } = req.params;
+    const response = await axios.get(`${WARD_API}/${districtCode}?depth=2`);
+    res.json({
+      success: true,
+      data: response.data.wards
+    });
+  } catch (error) {
+    console.error("Error fetching wards:", error);
+    res.status(500).json({
+      success: false,
+      error: "Không thể lấy danh sách phường/xã"
+    });
+  }
+});
+
+// Endpoint đăng ký tài khoản
+app.post("/register", async (req, res) => {
+  const {
+    username,
+    password,
+    fullName,
+    phone,
+    idCard,
+    province,
+    district,
+    ward,
+    street
+  } = req.body;
+
+  // Validation
+  if (!username || !password || !fullName || !phone) {
+    return res.status(400).json({
+      success: false,
+      error: "Vui lòng điền đầy đủ thông tin bắt buộc"
+    });
+  }
+
+  if (password.length < 6 || password.length > 20) {
+    return res.status(400).json({
+      success: false,
+      error: "Mật khẩu phải từ 6-20 ký tự"
+    });
+  }
+
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Kiểm tra username đã tồn tại
+    const userExists = await client.query(
+      'SELECT username FROM users WHERE username = $1',
+      [username]
+    );
+
+    if (userExists.rows.length > 0) {
+      throw new Error("Tên đăng nhập đã tồn tại");
+    }
+
+    // Kiểm tra số điện thoại đã tồn tại
+    const phoneExists = await client.query(
+      'SELECT phone FROM user_details WHERE phone = $1',
+      [phone]
+    );
+
+    if (phoneExists.rows.length > 0) {
+      throw new Error("Số điện thoại đã được đăng ký");
+    }
+
+    // Mã hóa mật khẩu
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Thêm user mới với role_id mặc định là SR (lấy từ bảng roles)
+    const newUser = await client.query(
+      `INSERT INTO users (username, password, role_id, must_change_password)
+       SELECT $1, $2, role_id, true
+       FROM roles 
+       WHERE role_name = 'SR'
+       RETURNING id`,
+      [username, hashedPassword]
+    );
+
+    const userId = newUser.rows[0].id;
+
+    // Thêm thông tin chi tiết user
+    await client.query(
+      `INSERT INTO user_details (
+        user_id, full_name, phone, id_card, 
+        province, district, ward, street
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        userId, fullName, phone, idCard || null,
+        province || null, district || null,
+        ward || null, street || null
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: "Đăng ký tài khoản thành công"
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Registration error:", error);
+    res.status(400).json({
+      success: false,
+      error: error.message || "Đăng ký thất bại"
+    });
+  } finally {
+    client.release();
   }
 });
 
