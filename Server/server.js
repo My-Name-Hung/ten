@@ -8,7 +8,6 @@ app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
-const axios = require('axios');
 
 // Setting cors
 app.use(
@@ -87,79 +86,205 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Cập nhật API login
-app.post("/login", loginLimiter, async (req, res) => {
+// API đăng nhập
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-
+  
   try {
     const result = await db.query(
-      `SELECT u.*, r.role_name 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.role_id 
-       WHERE u.username = $1 AND u.password = $2`,
+      'SELECT u.*, r.role_name FROM users u JOIN roles r ON u.role_id = r.role_id WHERE username = $1 AND password = $2',
       [username, password]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Sai tên đăng nhập hoặc mật khẩu" });
+      return res.status(401).json({
+        success: false,
+        error: "Tên đăng nhập hoặc mật khẩu không đúng"
+      });
     }
 
     const user = result.rows[0];
     const token = jwt.sign(
-      { username: user.username, role: user.role_name },
-      process.env.JWT_SECRET,
+      { id: user.id, username: user.username, role: user.role_name },
+      'your-secret-key',
       { expiresIn: '24h' }
     );
 
-    // Cập nhật last_login
-    await db.query(
-      "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = $1",
-      [username]
-    );
-
     res.json({
+      success: true,
       token,
-      username: user.username,
       role: user.role_name,
       mustChangePassword: user.must_change_password
     });
+
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Lỗi đăng nhập" });
+    res.status(500).json({
+      success: false,
+      error: "Đăng nhập thất bại"
+    });
   }
 });
 
-// Đổi mật khẩu
-app.post("/reset-password", async (req, res) => {
-  const { username, oldPassword, newPassword } = req.body;
+// API đăng ký
+app.post("/register", async (req, res) => {
+  const {
+    username,
+    password,
+    fullName,
+    phone,
+    idCard,
+    province,
+    district,
+    ward,
+    street
+  } = req.body;
+
+  const client = await db.connect();
 
   try {
-    // Kiểm tra mật khẩu cũ
-    const userResult = await db.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
-      [username, oldPassword]
+    await client.query('BEGIN');
+
+    // Kiểm tra username đã tồn tại
+    const userExists = await client.query(
+      'SELECT username FROM users WHERE username = $1',
+      [username]
     );
 
-    if (userResult.rows.length === 0) {
-      return res
-        .status(401)
-        .send({ message: "Mật khẩu cũ không chính xác. Vui lòng thử lại." });
+    if (userExists.rows.length > 0) {
+      throw new Error("Tên đăng nhập đã tồn tại");
     }
 
-    // Cập nhật mật khẩu mới
-    const updateResult = await db.query(
-      "UPDATE users SET password = $1, must_change_password = false WHERE username = $2 RETURNING *",
+    // Kiểm tra số điện thoại đã tồn tại
+    const phoneExists = await client.query(
+      'SELECT phone FROM user_details WHERE phone = $1',
+      [phone]
+    );
+
+    if (phoneExists.rows.length > 0) {
+      throw new Error("Số điện thoại đã được đăng ký");
+    }
+
+    // Thêm user mới
+    const newUser = await client.query(
+      `INSERT INTO users (username, password, role_id, must_change_password)
+       SELECT $1, $2, role_id, true
+       FROM roles 
+       WHERE role_name = 'SR'
+       RETURNING id`,
+      [username, password]
+    );
+
+    const userId = newUser.rows[0].id;
+
+    // Thêm thông tin chi tiết user
+    await client.query(
+      `INSERT INTO user_details (
+        user_id, full_name, phone, id_card, 
+        province, district, ward, street
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        userId, fullName, phone, idCard || null,
+        province || null, district || null,
+        ward || null, street || null
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: "Đăng ký tài khoản thành công"
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error("Registration error:", error);
+    res.status(400).json({
+      success: false,
+      error: error.message || "Đăng ký thất bại"
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// API đổi mật khẩu
+app.post("/reset-password", async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      error: "Không tìm thấy token xác thực"
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    const decoded = jwt.verify(token, 'your-secret-key');
+    
+    const result = await db.query(
+      'SELECT id FROM users WHERE id = $1 AND password = $2',
+      [decoded.id, oldPassword]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: "Mật khẩu cũ không đúng"
+      });
+    }
+
+    await db.query(
+      'UPDATE users SET password = $1, must_change_password = false WHERE id = $2',
+      [newPassword, decoded.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Đổi mật khẩu thành công"
+    });
+
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Đổi mật khẩu thất bại"
+    });
+  }
+});
+
+// API quên mật khẩu
+app.post("/forgot-password", async (req, res) => {
+  const { username, newPassword } = req.body;
+
+  try {
+    const result = await db.query(
+      'UPDATE users SET password = $1, must_change_password = true WHERE username = $2 RETURNING id',
       [newPassword, username]
     );
 
-    if (updateResult.rowCount === 0) {
-      return res.status(400).send({ message: "Đổi mật khẩu thất bại." });
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Không tìm thấy tài khoản"
+      });
     }
 
-    res.status(200).send({ message: "Đổi mật khẩu thành công." });
+    res.json({
+      success: true,
+      message: "Khôi phục mật khẩu thành công"
+    });
+
   } catch (error) {
-    console.error("Error during password reset:", error);
-    res.status(500).send({ error: "Lỗi hệ thống" });
+    console.error("Forgot password error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Khôi phục mật khẩu thất bại"
+    });
   }
 });
 
@@ -1056,325 +1181,6 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
       success: false,
       error: 'Lỗi khi lấy danh sách cửa hàng và sự kiện' 
     });
-  }
-});
-
-// Endpoint quên mật khẩu
-app.post("/forgot-password", loginLimiter, async (req, res) => {
-  const { username, newPassword } = req.body;
-  const clientIp = req.ip || req.connection.remoteAddress;
-
-  // Validation cơ bản
-  if (!username || !newPassword) {
-    return res.status(400).json({ 
-      success: false,
-      error: "Vui lòng cung cấp đầy đủ thông tin" 
-    });
-  }
-
-  // Kiểm tra định dạng mật khẩu
-  if (newPassword.length < 6 || newPassword.length > 10) {
-    return res.status(400).json({ 
-      success: false,
-      error: "Độ dài mật khẩu phải từ 6-10 ký tự" 
-    });
-  }
-
-  const numberOnlyRegex = /^\d{6,10}$/;
-  if (!numberOnlyRegex.test(newPassword)) {
-    return res.status(400).json({ 
-      success: false,
-      error: "Mật khẩu chỉ được chứa số và độ dài từ 6-10 số" 
-    });
-  }
-
-  // Bắt đầu transaction
-  const client = await db.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // Kiểm tra user tồn tại và lấy thông tin
-    const userResult = await client.query(
-      `SELECT username, role_name 
-       FROM users 
-       WHERE username = $1`,
-      [username]
-    );
-
-    if (userResult.rows.length === 0) {
-      throw new Error("Tài khoản không tồn tại");
-    }
-
-    const user = userResult.rows[0];
-
-    // Kiểm tra số lần reset trong 24h
-    const resetCountResult = await client.query(
-      `SELECT COUNT(*) 
-       FROM password_reset_logs 
-       WHERE performed_by = $1 
-       AND created_at > NOW() - INTERVAL '24 hours'`,
-      [username]
-    );
-
-    if (parseInt(resetCountResult.rows[0].count) >= 3) {
-      throw new Error("Bạn đã vượt quá số lần đổi mật khẩu cho phép trong 24h");
-    }
-
-
-    // Cập nhật mật khẩu
-    await client.query(
-      `UPDATE users 
-       SET password = $1,
-           must_change_password = false,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE username = $2`,
-      [hashedPassword, username]
-    );
-
-    // Ghi log
-    await client.query(
-      `INSERT INTO password_reset_logs 
-       (user_id, action_type, performed_by, ip_address)
-       VALUES ($1, $2, $3, $4)`,
-      [
-        username, // Sử dụng username thay vì user_id
-        'forgot_password',
-        username,
-        clientIp
-      ]
-    );
-
-    // Commit transaction
-    await client.query('COMMIT');
-
-    // Tạo token mới
-    const token = jwt.sign(
-      { 
-        username: user.username,
-        role: user.role_name 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      success: true,
-      message: "Đổi mật khẩu thành công",
-      token,
-      username: user.username,
-      role: user.role_name
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    
-    console.error("Error in forgot-password:", error);
-    res.status(error.message === "Tài khoản không tồn tại" ? 404 : 500).json({
-      success: false,
-      error: error.message || "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại sau."
-    });
-
-  } finally {
-    client.release();
-  }
-});
-
-// Endpoint lấy lịch sử đổi mật khẩu (cho admin)
-app.get("/password-reset-history", authenticateToken, async (req, res) => {
-  // Chỉ cho phép TSM trở lên xem lịch sử
-  if (!['TSM', 'ASM'].includes(req.user.role_name)) {
-    return res.status(403).json({
-      success: false,
-      error: "Không có quyền truy cập"
-    });
-  }
-
-  try {
-    const result = await db.query(
-      `SELECT 
-        prl.log_id,
-        prl.user_id as username,
-        u.role_name,
-        prl.action_type,
-        prl.performed_by,
-        prl.ip_address,
-        prl.created_at
-       FROM password_reset_logs prl
-       JOIN users u ON prl.user_id = u.username
-       ORDER BY prl.created_at DESC
-       LIMIT 100`
-    );
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-
-  } catch (error) {
-    console.error("Error fetching password reset history:", error);
-    res.status(500).json({
-      success: false,
-      error: "Có lỗi xảy ra khi lấy lịch sử đổi mật khẩu"
-    });
-  }
-});
-
-// API địa chỉ Việt Nam
-const PROVINCE_API = 'https://provinces.open-api.vn/api/p';
-const DISTRICT_API = 'https://provinces.open-api.vn/api/p';
-const WARD_API = 'https://provinces.open-api.vn/api/d';
-
-// Endpoint lấy danh sách tỉnh/thành phố
-app.get("/provinces", async (req, res) => {
-  try {
-    const response = await axios.get(PROVINCE_API);
-    res.json({
-      success: true,
-      data: response.data
-    });
-  } catch (error) {
-    console.error("Error fetching provinces:", error);
-    res.status(500).json({
-      success: false,
-      error: "Không thể lấy danh sách tỉnh/thành phố"
-    });
-  }
-});
-
-// Endpoint lấy danh sách quận/huyện theo tỉnh
-app.get("/districts/:provinceCode", async (req, res) => {
-  try {
-    const { provinceCode } = req.params;
-    const response = await axios.get(`${DISTRICT_API}/${provinceCode}?depth=2`);
-    res.json({
-      success: true,
-      data: response.data.districts
-    });
-  } catch (error) {
-    console.error("Error fetching districts:", error);
-    res.status(500).json({
-      success: false,
-      error: "Không thể lấy danh sách quận/huyện"
-    });
-  }
-});
-
-// Endpoint lấy danh sách phường/xã theo quận/huyện
-app.get("/wards/:districtCode", async (req, res) => {
-  try {
-    const { districtCode } = req.params;
-    const response = await axios.get(`${WARD_API}/${districtCode}?depth=2`);
-    res.json({
-      success: true,
-      data: response.data.wards
-    });
-  } catch (error) {
-    console.error("Error fetching wards:", error);
-    res.status(500).json({
-      success: false,
-      error: "Không thể lấy danh sách phường/xã"
-    });
-  }
-});
-
-// Endpoint đăng ký tài khoản
-app.post("/register", async (req, res) => {
-  const {
-    username,
-    password,
-    fullName,
-    phone,
-    idCard,
-    province,
-    district,
-    ward,
-    street
-  } = req.body;
-
-  // Validation
-  if (!username || !password || !fullName || !phone) {
-    return res.status(400).json({
-      success: false,
-      error: "Vui lòng điền đầy đủ thông tin bắt buộc"
-    });
-  }
-
-  if (password.length < 6 || password.length > 20) {
-    return res.status(400).json({
-      success: false,
-      error: "Mật khẩu phải từ 6-20 ký tự"
-    });
-  }
-
-  const client = await db.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // Kiểm tra username đã tồn tại
-    const userExists = await client.query(
-      'SELECT username FROM users WHERE username = $1',
-      [username]
-    );
-
-    if (userExists.rows.length > 0) {
-      throw new Error("Tên đăng nhập đã tồn tại");
-    }
-
-    // Kiểm tra số điện thoại đã tồn tại
-    const phoneExists = await client.query(
-      'SELECT phone FROM user_details WHERE phone = $1',
-      [phone]
-    );
-
-    if (phoneExists.rows.length > 0) {
-      throw new Error("Số điện thoại đã được đăng ký");
-    }
-
-    // Mã hóa mật khẩu
-
-    // Thêm user mới với role_id mặc định là SR (lấy từ bảng roles)
-    const newUser = await client.query(
-      `INSERT INTO users (username, password, role_id, must_change_password)
-       SELECT $1, $2, role_id, true
-       FROM roles 
-       WHERE role_name = 'SR'
-       RETURNING id`,
-      [username, hashedPassword]
-    );
-
-    const userId = newUser.rows[0].id;
-
-    // Thêm thông tin chi tiết user
-    await client.query(
-      `INSERT INTO user_details (
-        user_id, full_name, phone, id_card, 
-        province, district, ward, street
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        userId, fullName, phone, idCard || null,
-        province || null, district || null,
-        ward || null, street || null
-      ]
-    );
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: "Đăng ký tài khoản thành công"
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error("Registration error:", error);
-    res.status(400).json({
-      success: false,
-      error: error.message || "Đăng ký thất bại"
-    });
-  } finally {
-    client.release();
   }
 });
 
