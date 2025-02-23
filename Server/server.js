@@ -35,10 +35,11 @@ const dbConfig = {
   database: process.env.POSTGRES_DB,
 };
 
-// Create a new PostgreSQL client
+// Create a new PostgreSQL client and pool
 const db = new Client(dbConfig);
+const pool = new Pool(dbConfig);
 
-// Connet database
+// Connect database
 db.connect().then(() => {
   console.log("Connected to PostgreSQL database");
 });
@@ -1221,7 +1222,7 @@ app.post("/mobile/register", async (req, res) => {
 
   let client;
   try {
-    client = await pool.connect(); // Use pool instead of db.connect()
+    client = await db.connect(); // Use db instead of pool
 
     await client.query('BEGIN');
 
