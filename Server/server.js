@@ -1199,16 +1199,19 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
 
 // Mobile Register API
 app.post("/mobile/register", async (req, res) => {
+  console.log('Received registration request:', req.body); // Log request data
+
   const {
     phone,
     password,
     fullName,
     idCard,
-    address: { province, district, ward, street }
+    address
   } = req.body;
 
-  // Validation
-  if (!phone || !password || !fullName || !idCard) {
+  // Validate required fields
+  if (!phone || !password || !fullName || !idCard || !address) {
+    console.log('Missing required fields:', { phone, password, fullName, idCard, address });
     return res.status(400).json({
       success: false,
       message: "Vui lòng điền đầy đủ thông tin bắt buộc"
@@ -1240,29 +1243,57 @@ app.post("/mobile/register", async (req, res) => {
       throw new Error("ID card already exists");
     }
 
+    console.log('Inserting user into database with data:', {
+      phone,
+      fullName,
+      idCard,
+      address
+    });
+
     // Insert into users_register
     const registerResult = await client.query(
       `INSERT INTO users_register (
-        phone, password, full_name, id_card,
-        province, district, ward, street,
+        phone, 
+        password, 
+        full_name,
+        id_card, 
+        province,
+        district,
+        ward,
+        street,
         created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       RETURNING id`,
-      [phone, password, fullName, idCard, province, district, ward, street]
+      [
+        phone,
+        password,
+        fullName,
+        idCard,
+        address.province,
+        address.district,
+        address.ward,
+        address.street
+      ]
     );
 
     const userId = registerResult.rows[0].id;
 
+    console.log('User registered successfully with ID:', userId);
+
     // Insert into users_login
     await client.query(
       `INSERT INTO users_login (
-        user_id, phone, password, 
+        user_id,
+        phone,
+        password,
         created_at
       ) VALUES ($1, $2, $3, NOW())`,
       [userId, phone, password]
     );
 
     await client.query('COMMIT');
+
+    console.log('Registration completed successfully');
 
     res.json({
       success: true,
@@ -1284,9 +1315,11 @@ app.post("/mobile/register", async (req, res) => {
         message: "Số CCCD đã được đăng ký"
       });
     } else {
+      console.error('Detailed error:', error);
       res.status(500).json({
         success: false,
-        message: "Đăng ký thất bại, vui lòng thử lại sau"
+        message: "Đăng ký thất bại, vui lòng thử lại sau",
+        error: error.message // Thêm chi tiết lỗi để debug
       });
     }
   } finally {
