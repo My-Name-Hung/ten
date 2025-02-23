@@ -8,6 +8,7 @@ app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 // Setting cors
 app.use(
@@ -1054,6 +1055,169 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Lỗi khi lấy danh sách cửa hàng và sự kiện' 
+    });
+  }
+});
+
+// Endpoint quên mật khẩu
+app.post("/forgot-password", loginLimiter, async (req, res) => {
+  const { username, newPassword } = req.body;
+  const clientIp = req.ip || req.connection.remoteAddress;
+
+  // Validation cơ bản
+  if (!username || !newPassword) {
+    return res.status(400).json({ 
+      success: false,
+      error: "Vui lòng cung cấp đầy đủ thông tin" 
+    });
+  }
+
+  // Kiểm tra định dạng mật khẩu
+  if (newPassword.length < 6 || newPassword.length > 10) {
+    return res.status(400).json({ 
+      success: false,
+      error: "Độ dài mật khẩu phải từ 6-10 ký tự" 
+    });
+  }
+
+  const numberOnlyRegex = /^\d{6,10}$/;
+  if (!numberOnlyRegex.test(newPassword)) {
+    return res.status(400).json({ 
+      success: false,
+      error: "Mật khẩu chỉ được chứa số và độ dài từ 6-10 số" 
+    });
+  }
+
+  // Bắt đầu transaction
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Kiểm tra user tồn tại và lấy thông tin
+    const userResult = await client.query(
+      `SELECT username, role_name 
+       FROM users 
+       WHERE username = $1`,
+      [username]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error("Tài khoản không tồn tại");
+    }
+
+    const user = userResult.rows[0];
+
+    // Kiểm tra số lần reset trong 24h
+    const resetCountResult = await client.query(
+      `SELECT COUNT(*) 
+       FROM password_reset_logs 
+       WHERE performed_by = $1 
+       AND created_at > NOW() - INTERVAL '24 hours'`,
+      [username]
+    );
+
+    if (parseInt(resetCountResult.rows[0].count) >= 3) {
+      throw new Error("Bạn đã vượt quá số lần đổi mật khẩu cho phép trong 24h");
+    }
+
+    // Hash mật khẩu mới
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Cập nhật mật khẩu
+    await client.query(
+      `UPDATE users 
+       SET password = $1,
+           must_change_password = false,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE username = $2`,
+      [hashedPassword, username]
+    );
+
+    // Ghi log
+    await client.query(
+      `INSERT INTO password_reset_logs 
+       (user_id, action_type, performed_by, ip_address)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        username, // Sử dụng username thay vì user_id
+        'forgot_password',
+        username,
+        clientIp
+      ]
+    );
+
+    // Commit transaction
+    await client.query('COMMIT');
+
+    // Tạo token mới
+    const token = jwt.sign(
+      { 
+        username: user.username,
+        role: user.role_name 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      message: "Đổi mật khẩu thành công",
+      token,
+      username: user.username,
+      role: user.role_name
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    
+    console.error("Error in forgot-password:", error);
+    res.status(error.message === "Tài khoản không tồn tại" ? 404 : 500).json({
+      success: false,
+      error: error.message || "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại sau."
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint lấy lịch sử đổi mật khẩu (cho admin)
+app.get("/password-reset-history", authenticateToken, async (req, res) => {
+  // Chỉ cho phép TSM trở lên xem lịch sử
+  if (!['TSM', 'ASM'].includes(req.user.role_name)) {
+    return res.status(403).json({
+      success: false,
+      error: "Không có quyền truy cập"
+    });
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT 
+        prl.log_id,
+        prl.user_id as username,
+        u.role_name,
+        prl.action_type,
+        prl.performed_by,
+        prl.ip_address,
+        prl.created_at
+       FROM password_reset_logs prl
+       JOIN users u ON prl.user_id = u.username
+       ORDER BY prl.created_at DESC
+       LIMIT 100`
+    );
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error("Error fetching password reset history:", error);
+    res.status(500).json({
+      success: false,
+      error: "Có lỗi xảy ra khi lấy lịch sử đổi mật khẩu"
     });
   }
 });
