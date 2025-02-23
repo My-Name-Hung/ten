@@ -8,7 +8,6 @@ app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 
 // Setting cors
 app.use(
@@ -1121,8 +1120,6 @@ app.post("/forgot-password", loginLimiter, async (req, res) => {
       throw new Error("Bạn đã vượt quá số lần đổi mật khẩu cho phép trong 24h");
     }
 
-    // Hash mật khẩu mới
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Cập nhật mật khẩu
     await client.query(
