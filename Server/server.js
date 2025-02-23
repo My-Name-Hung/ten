@@ -128,6 +128,8 @@ app.post("/login", async (req, res) => {
 
 // API đăng ký
 app.post("/register", async (req, res) => {
+  console.log("Received registration request:", req.body);
+  
   const {
     username,
     password,
@@ -140,7 +142,17 @@ app.post("/register", async (req, res) => {
     street
   } = req.body;
 
+  // Validation
+  if (!username || !password || !fullName || !phone) {
+    console.log("Missing required fields");
+    return res.status(400).json({
+      success: false,
+      error: "Vui lòng điền đầy đủ thông tin bắt buộc"
+    });
+  }
+
   const client = await db.connect();
+  console.log("Database connected");
 
   try {
     await client.query('BEGIN');
@@ -155,26 +167,27 @@ app.post("/register", async (req, res) => {
       throw new Error("Tên đăng nhập đã tồn tại");
     }
 
-    // Kiểm tra số điện thoại đã tồn tại
-    const phoneExists = await client.query(
-      'SELECT phone FROM user_details WHERE phone = $1',
-      [phone]
+    // Lấy role_id cho SR
+    const roleResult = await client.query(
+      'SELECT role_id FROM roles WHERE role_name = $1',
+      ['SR']
     );
 
-    if (phoneExists.rows.length > 0) {
-      throw new Error("Số điện thoại đã được đăng ký");
+    if (roleResult.rows.length === 0) {
+      throw new Error("Không tìm thấy role SR");
     }
+
+    const roleId = roleResult.rows[0].role_id;
 
     // Thêm user mới
     const newUser = await client.query(
-      `INSERT INTO users (username, password, role_id, must_change_password)
-       SELECT $1, $2, role_id, true
-       FROM roles 
-       WHERE role_name = 'SR'
+      `INSERT INTO users (username, password, must_change_password)
+       VALUES ($1, $2, true)
        RETURNING id`,
       [username, password]
     );
 
+    console.log("User created:", newUser.rows[0]);
     const userId = newUser.rows[0].id;
 
     // Thêm thông tin chi tiết user
@@ -184,13 +197,13 @@ app.post("/register", async (req, res) => {
         province, district, ward, street
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
-        userId, fullName, phone, idCard || null,
-        province || null, district || null,
-        ward || null, street || null
+        userId, fullName, phone, idCard,
+        province, district, ward, street
       ]
     );
 
     await client.query('COMMIT');
+    console.log("Registration successful");
 
     res.json({
       success: true,
