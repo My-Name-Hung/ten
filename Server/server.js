@@ -8,6 +8,7 @@ app.use(express.json());
 const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
+const { Pool } = require('pg');
 
 // Setting cors
 app.use(
@@ -1199,7 +1200,7 @@ app.get("/stores-and-events", authenticateToken, async (req, res) => {
 
 // Mobile Register API
 app.post("/mobile/register", async (req, res) => {
-  console.log('Received registration request:', req.body); // Log request data
+  console.log('Received registration request:', req.body);
 
   const {
     phone,
@@ -1218,9 +1219,10 @@ app.post("/mobile/register", async (req, res) => {
     });
   }
 
-  const client = await db.connect();
-
+  let client;
   try {
+    client = await pool.connect(); // Use pool instead of db.connect()
+
     await client.query('BEGIN');
 
     // Check if phone exists
@@ -1301,7 +1303,9 @@ app.post("/mobile/register", async (req, res) => {
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) {
+      await client.query('ROLLBACK');
+    }
     console.error("Mobile registration error:", error);
     
     if (error.message === "Phone number already exists") {
@@ -1319,11 +1323,13 @@ app.post("/mobile/register", async (req, res) => {
       res.status(500).json({
         success: false,
         message: "Đăng ký thất bại, vui lòng thử lại sau",
-        error: error.message // Thêm chi tiết lỗi để debug
+        error: error.message
       });
     }
   } finally {
-    client.release();
+    if (client) {
+      client.release(); // Release the client back to the pool
+    }
   }
 });
 
