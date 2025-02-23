@@ -9,7 +9,6 @@ const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
-const bcrypt = require('bcrypt');
 
 // Setting cors
 app.use(
@@ -1124,7 +1123,6 @@ app.post("/forgot-password", loginLimiter, async (req, res) => {
 
 
     // Cập nhật mật khẩu
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await client.query(
       `UPDATE users 
        SET password = $1,
@@ -1335,7 +1333,6 @@ app.post("/register", async (req, res) => {
     }
 
     // Mã hóa mật khẩu
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Thêm user mới với role_id mặc định là SR (lấy từ bảng roles)
     const newUser = await client.query(
