@@ -1397,10 +1397,8 @@ app.post("/mobile/login", async (req, res) => {
 app.post("/mobile/forgot-password", async (req, res) => {
   const { phone, newPassword, idCard } = req.body;
 
-  const client = await db.connect();
-
   try {
-    await client.query('BEGIN');
+    await db.query('BEGIN');
 
     // Kiểm tra số điện thoại và CCCD có khớp không
     const userExists = await db.query(
@@ -1409,7 +1407,10 @@ app.post("/mobile/forgot-password", async (req, res) => {
     );
 
     if (userExists.rows.length === 0) {
-      throw new Error("invalid_credentials");
+      return res.status(400).json({
+        success: false,
+        message: "Số điện thoại hoặc CCCD không chính xác"
+      });
     }
 
     const userId = userExists.rows[0].id;
@@ -1444,19 +1445,10 @@ app.post("/mobile/forgot-password", async (req, res) => {
     await db.query('ROLLBACK');
     console.error("Mobile forgot password error:", error);
     
-    if (error.message === "invalid_credentials") {
-      res.status(400).json({
-        success: false,
-        message: "Số điện thoại hoặc CCCD không chính xác"
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: "Khôi phục mật khẩu thất bại, vui lòng thử lại sau"
-      });
-    }
-  } finally {
-    client.release();
+    res.status(500).json({
+      success: false,
+      message: "Khôi phục mật khẩu thất bại, vui lòng thử lại sau"
+    });
   }
 });
 
