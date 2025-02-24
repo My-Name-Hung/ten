@@ -1640,43 +1640,35 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       }
     } catch (error) {
       console.error('Error fetching address details:', error);
-      // Log chi tiết lỗi để debug
-      if (error.response) {
-        console.error('Error response:', error.response.data);
-        console.error('Error status:', error.response.status);
-      }
-      // Tiếp tục xử lý ngay cả khi không lấy được tên địa chỉ
+      return res.status(500).json({
+        success: false,
+        message: "Không thể cập nhật thông tin địa chỉ. Vui lòng thử lại sau."
+      });
     }
 
-    // Cập nhật thông tin trong database
+    // Cập nhật thông tin trong database - Chỉ lưu tên địa chỉ
     const updateQuery = `
       UPDATE users_register 
       SET 
         full_name = $1,
         id_card = $2,
         province = $3,
-        province_code = $4,
-        district = $5,
-        district_code = $6,
-        ward = $7,
-        ward_code = $8,
-        street = $9,
-        tax_code = $10,
-        business_license = $11,
+        district = $4,
+        ward = $5,
+        street = $6,
+        tax_code = $7,
+        business_license = $8,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12
+      WHERE id = $9
       RETURNING *
     `;
 
     const values = [
       full_name,
       id_card || null,
-      provinceName || null,
-      province || null,
-      districtName || null,
-      district || null,
-      wardName || null,
-      ward || null,
+      provinceName || null,  // Lưu tên tỉnh/thành phố
+      districtName || null,  // Lưu tên quận/huyện
+      wardName || null,      // Lưu tên phường/xã
       street || null,
       tax_code || null,
       business_license || null,
@@ -1692,7 +1684,7 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       });
     }
 
-    // Format lại dữ liệu trả về
+    // Format lại dữ liệu trả về - Chỉ trả về tên địa chỉ
     const updatedUser = updateResult.rows[0];
     
     res.json({
@@ -1703,12 +1695,9 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         full_name: updatedUser.full_name,
         phone: updatedUser.phone,
         id_card: updatedUser.id_card,
-        province: updatedUser.province,
-        province_code: updatedUser.province_code,
-        district: updatedUser.district,
-        district_code: updatedUser.district_code,
-        ward: updatedUser.ward,
-        ward_code: updatedUser.ward_code,
+        province: updatedUser.province,    // Trả về tên tỉnh/thành phố
+        district: updatedUser.district,    // Trả về tên quận/huyện
+        ward: updatedUser.ward,            // Trả về tên phường/xã
         street: updatedUser.street,
         tax_code: updatedUser.tax_code,
         business_license: updatedUser.business_license,
@@ -1725,15 +1714,12 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
   }
 });
 
-// Thêm migration để cập nhật cấu trúc bảng users_register
+// Cập nhật cấu trúc bảng - Bỏ các cột code không cần thiết
 const updateTableQuery = `
 ALTER TABLE users_register
-ADD COLUMN IF NOT EXISTS province_code VARCHAR(10),
-ADD COLUMN IF NOT EXISTS district_code VARCHAR(10),
-ADD COLUMN IF NOT EXISTS ward_code VARCHAR(10),
-ADD COLUMN IF NOT EXISTS tax_code VARCHAR(20),
-ADD COLUMN IF NOT EXISTS business_license VARCHAR(50),
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+DROP COLUMN IF EXISTS province_code,
+DROP COLUMN IF EXISTS district_code,
+DROP COLUMN IF EXISTS ward_code;
 `;
 
 // Thực thi migration
