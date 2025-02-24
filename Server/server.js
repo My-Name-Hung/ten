@@ -1580,3 +1580,81 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
   }
 });
 
+// API endpoint để cập nhật thông tin profile
+app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      full_name,
+      id_card,
+      province,
+      district,
+      ward,
+      street,
+      tax_code,           // Thêm mã số thuế
+      business_license    // Thêm giấy phép kinh doanh
+    } = req.body;
+
+    // Validate dữ liệu
+    if (!full_name) {
+      return res.status(400).json({
+        success: false,
+        message: "Họ tên không được để trống"
+      });
+    }
+
+    // Cập nhật thông tin trong database
+    const updateResult = await db.query(
+      `UPDATE users_register 
+       SET full_name = $1,
+           id_card = $2,
+           province = $3,
+           district = $4,
+           ward = $5,
+           street = $6,
+           tax_code = $7,
+           business_license = $8,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9
+       RETURNING id, full_name, phone, id_card, province, district, ward, street, 
+                 tax_code, business_license, avatar_url`,
+      [full_name, id_card, province, district, ward, street, tax_code, business_license, userId]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy thông tin người dùng"
+      });
+    }
+
+    // Format lại dữ liệu trả về
+    const updatedUser = updateResult.rows[0];
+    
+    res.json({
+      success: true,
+      message: "Cập nhật thông tin thành công",
+      data: {
+        id: updatedUser.id,
+        full_name: updatedUser.full_name,
+        phone: updatedUser.phone,
+        id_card: updatedUser.id_card,
+        province: updatedUser.province,
+        district: updatedUser.district,
+        ward: updatedUser.ward,
+        street: updatedUser.street,
+        tax_code: updatedUser.tax_code,
+        business_license: updatedUser.business_license,
+        avatar_url: updatedUser.avatar_url
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể cập nhật thông tin. Vui lòng thử lại sau."
+    });
+  }
+});
+
