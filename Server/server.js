@@ -1553,19 +1553,18 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const query = `
+    // Lấy thông tin user từ database
+    const userQuery = `
       SELECT 
         id, full_name, phone, id_card,
-        province,
-        district,
-        ward,
+        province, district, ward,
         street, tax_code, business_license,
         updated_at
       FROM users_register 
       WHERE id = $1
     `;
 
-    const result = await db.query(query, [userId]);
+    const result = await db.query(userQuery, [userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -1574,10 +1573,59 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
+    const userData = result.rows[0];
+
+    try {
+      // Lấy tên địa chỉ từ API provinces
+      let provinceName = '', districtName = '', wardName = '';
+
+      // Lấy tất cả ward một lần
+      const wardsResponse = await axios.get('https://provinces.open-api.vn/api/w/');
+      const allWards = wardsResponse.data;
+
+      if (userData.province) {
+        const provinceResponse = await axios.get(`https://provinces.open-api.vn/api/p/${userData.province}`);
+        provinceName = provinceResponse.data.name;
+      }
+
+      if (userData.district) {
+        const districtResponse = await axios.get(`https://provinces.open-api.vn/api/d/${userData.district}`);
+        districtName = districtResponse.data.name;
+      }
+
+      if (userData.ward) {
+        const wardData = allWards.find(w => w.code.toString() === userData.ward.toString());
+        if (wardData) {
+          wardName = wardData.name;
+        }
+      }
+
+      // Trả về response với tên địa chỉ thay vì code
+      res.json({
+        success: true,
+        data: {
+          id: userData.id,
+          full_name: userData.full_name,
+          phone: userData.phone,
+          id_card: userData.id_card,
+          province: provinceName || userData.province,
+          district: districtName || userData.district,
+          ward: wardName || userData.ward,
+          street: userData.street,
+          tax_code: userData.tax_code,
+          business_license: userData.business_license,
+          updated_at: userData.updated_at
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching address names:', error);
+      // Nếu không lấy được tên địa chỉ, vẫn trả về dữ liệu gốc
+      res.json({
+        success: true,
+        data: userData
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching user info:', error);
