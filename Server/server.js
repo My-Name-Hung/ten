@@ -1544,3 +1544,36 @@ app.post("/mobile/update-avatar", authenticateToken, upload.single('avatar'), as
 // Serve static files
 app.use('/uploads', express.static('uploads'));
 
+// API endpoint để lấy thông tin user
+app.get("/mobile/user-info", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await db.query(
+      `SELECT id, phone, full_name, avatar_url 
+       FROM users_register 
+       WHERE id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User không tồn tại"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("Error fetching user info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi lấy thông tin người dùng"
+    });
+  }
+});
+
