@@ -9,6 +9,9 @@ const https = require("https");
 const serverPinger = require('./utils/cronJobs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // Setting cors
 app.use(
@@ -1451,4 +1454,93 @@ app.post("/mobile/forgot-password", async (req, res) => {
     });
   }
 });
+
+// Cấu hình multer để xử lý upload file
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/avatars';
+    // Tạo thư mục nếu chưa tồn tại
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Tạo tên file duy nhất với timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // Giới hạn 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Chỉ cho phép upload ảnh
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Chỉ cho phép upload file ảnh'), false);
+    }
+  }
+});
+
+// API endpoint để update avatar
+app.post("/mobile/update-avatar", authenticateToken, upload.single('avatar'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "Không tìm thấy file ảnh"
+    });
+  }
+
+  try {
+    const userId = req.user.id;
+    const avatarPath = req.file.path;
+    const avatarUrl = `${process.env.BASE_URL}/uploads/avatars/${req.file.filename}`;
+
+    // Xóa avatar cũ nếu có
+    const oldAvatarResult = await db.query(
+      'SELECT avatar_url FROM users_register WHERE id = $1',
+      [userId]
+    );
+
+    if (oldAvatarResult.rows[0]?.avatar_url) {
+      const oldAvatarPath = oldAvatarResult.rows[0].avatar_url.replace(`${process.env.BASE_URL}/`, '');
+      if (fs.existsSync(oldAvatarPath)) {
+        fs.unlinkSync(oldAvatarPath);
+      }
+    }
+
+    // Cập nhật đường dẫn avatar mới trong database
+    await db.query(
+      'UPDATE users_register SET avatar_url = $1 WHERE id = $2',
+      [avatarUrl, userId]
+    );
+
+    res.json({
+      success: true,
+      message: "Cập nhật avatar thành công",
+      data: {
+        avatarUrl
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating avatar:', error);
+    // Xóa file đã upload nếu có lỗi
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({
+      success: false,
+      message: "Không thể cập nhật avatar. Vui lòng thử lại sau."
+    });
+  }
+});
+
+// Serve static files
+app.use('/uploads', express.static('uploads'));
 
