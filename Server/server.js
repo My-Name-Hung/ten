@@ -1745,3 +1745,47 @@ db.query(updateTableQuery)
     console.error('Error updating table structure:', error);
   });
 
+// API endpoint để xóa tài khoản
+app.delete("/mobile/delete-account", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await db.query('BEGIN');
+
+    // Xóa dữ liệu từ các bảng liên quan
+    await db.query('DELETE FROM users_login WHERE user_id = $1', [userId]);
+    await db.query('DELETE FROM user_forgot WHERE user_id = $1', [userId]);
+    
+    // Xóa avatar nếu có
+    const avatarResult = await db.query(
+      'SELECT avatar_url FROM users_register WHERE id = $1',
+      [userId]
+    );
+    
+    if (avatarResult.rows[0]?.avatar_url) {
+      const avatarPath = avatarResult.rows[0].avatar_url.replace('https://ten-p521.onrender.com/', '');
+      if (fs.existsSync(avatarPath)) {
+        fs.unlinkSync(avatarPath);
+      }
+    }
+
+    // Xóa tài khoản từ bảng users_register
+    await db.query('DELETE FROM users_register WHERE id = $1', [userId]);
+
+    await db.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: "Tài khoản đã được xóa thành công"
+    });
+
+  } catch (error) {
+    await db.query('ROLLBACK');
+    console.error('Error deleting account:', error);
+    res.status(500).json({
+      success: false,
+      message: "Không thể xóa tài khoản. Vui lòng thử lại sau."
+    });
+  }
+});
+
