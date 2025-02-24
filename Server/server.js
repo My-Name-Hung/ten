@@ -1615,6 +1615,10 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
     let provinceName = '', districtName = '', wardName = '';
     
     try {
+      // Lấy tất cả ward một lần
+      const wardsResponse = await axios.get('https://provinces.open-api.vn/api/w/');
+      const allWards = wardsResponse.data;
+
       // Lấy tên tỉnh/thành phố
       if (province) {
         const provinceResponse = await axios.get(`https://provinces.open-api.vn/api/p/${province}`);
@@ -1627,13 +1631,20 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         districtName = districtResponse.data.name;
       }
       
-      // Lấy tên phường/xã
+      // Tìm tên ward từ danh sách đã lấy
       if (ward) {
-        const wardResponse = await axios.get(`https://provinces.open-api.vn/api/w/${ward}`);
-        wardName = wardResponse.data.name;
+        const wardData = allWards.find(w => w.code.toString() === ward.toString());
+        if (wardData) {
+          wardName = wardData.name;
+        }
       }
     } catch (error) {
       console.error('Error fetching address details:', error);
+      // Log chi tiết lỗi để debug
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+      }
       // Tiếp tục xử lý ngay cả khi không lấy được tên địa chỉ
     }
 
