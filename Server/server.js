@@ -64,30 +64,34 @@ const loginLimiter = rateLimit({
 
 // Middleware kiểm tra token và phân quyền
 const authenticateToken = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Không có token xác thực' });
-  }
-
   try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: "Không tìm thấy token" });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded); // Debug log
+
+    // Tìm user trong bảng users_register với user_id
     const userResult = await db.query(
-      `SELECT u.*, r.role_name 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.role_id 
-       WHERE u.username = $1`,
-      [decoded.username]
+      'SELECT * FROM users_register WHERE id = $1',
+      [decoded.userId]
     );
 
+    console.log('Found user:', userResult.rows[0]); // Debug log
+
     if (userResult.rows.length === 0) {
-      return res.status(401).json({ error: 'User không tồn tại' });
+      return res.status(401).json({ error: "User không tồn tại" });
     }
 
     req.user = userResult.rows[0];
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Token không hợp lệ' });
+    console.error('Auth error:', error);
+    return res.status(401).json({ error: "Token không hợp lệ" });
   }
 };
 
@@ -1351,7 +1355,7 @@ app.post("/mobile/login", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Generate JWT token
+    // Generate JWT token - Sửa lại cấu trúc token
     const token = jwt.sign(
       { 
         userId: user.user_id,
