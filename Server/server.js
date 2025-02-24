@@ -1498,7 +1498,6 @@ app.post("/mobile/update-avatar", authenticateToken, upload.single('avatar'), as
 
   try {
     const userId = req.user.id;
-    const avatarPath = req.file.path;
     const avatarUrl = `https://ten-p521.onrender.com/uploads/avatars/${req.file.filename}`;
 
     // Xóa avatar cũ nếu có
@@ -1508,7 +1507,7 @@ app.post("/mobile/update-avatar", authenticateToken, upload.single('avatar'), as
     );
 
     if (oldAvatarResult.rows[0]?.avatar_url) {
-      const oldAvatarPath = oldAvatarResult.rows[0].avatar_url.replace(`${process.env.BASE_URL}/`, '');
+      const oldAvatarPath = oldAvatarResult.rows[0].avatar_url.replace('https://ten-p521.onrender.com/', '');
       if (fs.existsSync(oldAvatarPath)) {
         fs.unlinkSync(oldAvatarPath);
       }
