@@ -1499,7 +1499,7 @@ app.post("/mobile/update-avatar", authenticateToken, upload.single('avatar'), as
   try {
     const userId = req.user.id;
     const avatarPath = req.file.path;
-    const avatarUrl = `${process.env.BASE_URL}/uploads/avatars/${req.file.filename}`;
+    const avatarUrl = `https://ten-p521.onrender.com/uploads/avatars/${req.file.filename}`;
 
     // Xóa avatar cũ nếu có
     const oldAvatarResult = await db.query(
