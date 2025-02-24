@@ -1624,10 +1624,9 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       }
     } catch (error) {
       console.error('Error fetching address details:', error);
-      // Tiếp tục xử lý ngay cả khi không lấy được tên địa chỉ
     }
 
-    // Cập nhật thông tin trong database
+    // Cập nhật thông tin trong database - Bỏ updated_at khỏi SET clause
     const updateResult = await db.query(
       `UPDATE users_register 
        SET full_name = $1,
@@ -1640,8 +1639,7 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
            ward_code = $8,
            street = $9,
            tax_code = $10,
-           business_license = $11,
-           updated_at = CURRENT_TIMESTAMP
+           business_license = $11
        WHERE id = $12
        RETURNING id, full_name, phone, id_card, 
                  province, province_code,
@@ -1711,7 +1709,8 @@ ADD COLUMN IF NOT EXISTS province_code VARCHAR(10),
 ADD COLUMN IF NOT EXISTS district_code VARCHAR(10),
 ADD COLUMN IF NOT EXISTS ward_code VARCHAR(10),
 ADD COLUMN IF NOT EXISTS tax_code VARCHAR(20),
-ADD COLUMN IF NOT EXISTS business_license VARCHAR(50);
+ADD COLUMN IF NOT EXISTS business_license VARCHAR(50),
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 `;
 
 // Thực thi migration
