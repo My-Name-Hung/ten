@@ -1556,9 +1556,9 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
     const query = `
       SELECT 
         id, full_name, phone, id_card,
-        province, province_code,
-        district, district_code,
-        ward, ward_code,
+        province,
+        district,
+        ward,
         street, tax_code, business_license,
         updated_at
       FROM users_register 
