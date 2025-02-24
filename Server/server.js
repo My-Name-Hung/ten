@@ -1553,17 +1553,24 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const result = await db.query(
-      `SELECT *
-       FROM users_register 
-       WHERE id = $1`,
-      [userId]
-    );
+    const query = `
+      SELECT 
+        id, full_name, phone, id_card,
+        province, province_code,
+        district, district_code,
+        ward, ward_code,
+        street, tax_code, business_license,
+        updated_at
+      FROM users_register 
+      WHERE id = $1
+    `;
+
+    const result = await db.query(query, [userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "User không tồn tại"
+        message: "Không tìm thấy thông tin người dùng"
       });
     }
 
@@ -1573,10 +1580,10 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error fetching user info:", error);
+    console.error('Error fetching user info:', error);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi lấy thông tin người dùng"
+      message: "Không thể lấy thông tin người dùng. Vui lòng thử lại sau."
     });
   }
 });
@@ -1608,59 +1615,64 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
     let provinceName = '', districtName = '', wardName = '';
     
     try {
+      // Lấy tên tỉnh/thành phố
       if (province) {
         const provinceResponse = await axios.get(`https://provinces.open-api.vn/api/p/${province}`);
         provinceName = provinceResponse.data.name;
       }
       
+      // Lấy tên quận/huyện
       if (district) {
         const districtResponse = await axios.get(`https://provinces.open-api.vn/api/d/${district}`);
         districtName = districtResponse.data.name;
       }
       
+      // Lấy tên phường/xã
       if (ward) {
         const wardResponse = await axios.get(`https://provinces.open-api.vn/api/w/${ward}`);
         wardName = wardResponse.data.name;
       }
     } catch (error) {
       console.error('Error fetching address details:', error);
+      // Tiếp tục xử lý ngay cả khi không lấy được tên địa chỉ
     }
 
-    // Cập nhật thông tin trong database - Bỏ updated_at khỏi SET clause
-    const updateResult = await db.query(
-      `UPDATE users_register 
-       SET full_name = $1,
-           id_card = $2,
-           province = $3,
-           province_code = $4,
-           district = $5,
-           district_code = $6,
-           ward = $7,
-           ward_code = $8,
-           street = $9,
-           tax_code = $10,
-           business_license = $11
-       WHERE id = $12
-       RETURNING id, full_name, phone, id_card, 
-                 province, province_code,
-                 district, district_code,
-                 ward, ward_code,
-                 street, tax_code, business_license, avatar_url`,
-      [
-        full_name,
-        id_card,
-        provinceName,
-        province,
-        districtName,
-        district,
-        wardName,
-        ward,
-        street,
-        tax_code,
-        business_license,
-        userId
-      ]
-    );
+    // Cập nhật thông tin trong database
+    const updateQuery = `
+      UPDATE users_register 
+      SET 
+        full_name = $1,
+        id_card = $2,
+        province = $3,
+        province_code = $4,
+        district = $5,
+        district_code = $6,
+        ward = $7,
+        ward_code = $8,
+        street = $9,
+        tax_code = $10,
+        business_license = $11,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $12
+      RETURNING *
+    `;
+
+    const values = [
+      full_name,
+      id_card || null,
+      provinceName || null,
+      province || null,
+      districtName || null,
+      district || null,
+      wardName || null,
+      ward || null,
+      street || null,
+      tax_code || null,
+      business_license || null,
+      userId
+    ];
+
+    const updateResult = await db.query(updateQuery, values);
 
     if (updateResult.rows.length === 0) {
       return res.status(404).json({
@@ -1689,7 +1701,7 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         street: updatedUser.street,
         tax_code: updatedUser.tax_code,
         business_license: updatedUser.business_license,
-        avatar_url: updatedUser.avatar_url
+        updated_at: updatedUser.updated_at
       }
     });
 
