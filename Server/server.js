@@ -1554,7 +1554,7 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     const result = await db.query(
-      `SELECT id, phone, full_name, avatar_url 
+      `SELECT *
        FROM users_register 
        WHERE id = $1`,
       [userId]
