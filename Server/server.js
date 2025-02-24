@@ -12,6 +12,7 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 
 // Setting cors
 app.use(
@@ -1591,16 +1592,39 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       district,
       ward,
       street,
-      tax_code,           // Thêm mã số thuế
-      business_license    // Thêm giấy phép kinh doanh
+      tax_code,
+      business_license
     } = req.body;
 
-    // Validate dữ liệu
+    // Validate dữ liệu bắt buộc
     if (!full_name) {
       return res.status(400).json({
         success: false,
         message: "Họ tên không được để trống"
       });
+    }
+
+    // Lấy tên địa chỉ từ API provinces
+    let provinceName = '', districtName = '', wardName = '';
+    
+    try {
+      if (province) {
+        const provinceResponse = await axios.get(`https://provinces.open-api.vn/api/p/${province}`);
+        provinceName = provinceResponse.data.name;
+      }
+      
+      if (district) {
+        const districtResponse = await axios.get(`https://provinces.open-api.vn/api/d/${district}`);
+        districtName = districtResponse.data.name;
+      }
+      
+      if (ward) {
+        const wardResponse = await axios.get(`https://provinces.open-api.vn/api/w/${ward}`);
+        wardName = wardResponse.data.name;
+      }
+    } catch (error) {
+      console.error('Error fetching address details:', error);
+      // Tiếp tục xử lý ngay cả khi không lấy được tên địa chỉ
     }
 
     // Cập nhật thông tin trong database
@@ -1609,16 +1633,35 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
        SET full_name = $1,
            id_card = $2,
            province = $3,
-           district = $4,
-           ward = $5,
-           street = $6,
-           tax_code = $7,
-           business_license = $8,
+           province_code = $4,
+           district = $5,
+           district_code = $6,
+           ward = $7,
+           ward_code = $8,
+           street = $9,
+           tax_code = $10,
+           business_license = $11,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $9
-       RETURNING id, full_name, phone, id_card, province, district, ward, street, 
-                 tax_code, business_license, avatar_url`,
-      [full_name, id_card, province, district, ward, street, tax_code, business_license, userId]
+       WHERE id = $12
+       RETURNING id, full_name, phone, id_card, 
+                 province, province_code,
+                 district, district_code,
+                 ward, ward_code,
+                 street, tax_code, business_license, avatar_url`,
+      [
+        full_name,
+        id_card,
+        provinceName,
+        province,
+        districtName,
+        district,
+        wardName,
+        ward,
+        street,
+        tax_code,
+        business_license,
+        userId
+      ]
     );
 
     if (updateResult.rows.length === 0) {
@@ -1640,8 +1683,11 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         phone: updatedUser.phone,
         id_card: updatedUser.id_card,
         province: updatedUser.province,
+        province_code: updatedUser.province_code,
         district: updatedUser.district,
+        district_code: updatedUser.district_code,
         ward: updatedUser.ward,
+        ward_code: updatedUser.ward_code,
         street: updatedUser.street,
         tax_code: updatedUser.tax_code,
         business_license: updatedUser.business_license,
@@ -1657,4 +1703,23 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Thêm migration để cập nhật cấu trúc bảng users_register
+const updateTableQuery = `
+ALTER TABLE users_register
+ADD COLUMN IF NOT EXISTS province_code VARCHAR(10),
+ADD COLUMN IF NOT EXISTS district_code VARCHAR(10),
+ADD COLUMN IF NOT EXISTS ward_code VARCHAR(10),
+ADD COLUMN IF NOT EXISTS tax_code VARCHAR(20),
+ADD COLUMN IF NOT EXISTS business_license VARCHAR(50);
+`;
+
+// Thực thi migration
+db.query(updateTableQuery)
+  .then(() => {
+    console.log('Updated users_register table structure successfully');
+  })
+  .catch(error => {
+    console.error('Error updating table structure:', error);
+  });
 
