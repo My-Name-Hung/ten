@@ -1652,63 +1652,35 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
 app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const {
-      full_name,
-      id_card,
-      province,
-      district,
-      ward,
-      street,
-      tax_code,
-      business_license,
-      bank_name,
-      bank_account
-    } = req.body;
-
-    // Validate dữ liệu bắt buộc
-    if (!full_name) {
-      return res.status(400).json({
-        success: false,
-        message: "Họ tên không được để trống"
-      });
-    }
-
-    // Lấy tên địa chỉ từ API provinces
-    let provinceName = '', districtName = '', wardName = '';
     
-    try {
-      // Lấy tất cả ward một lần
-      const wardsResponse = await axios.get('https://provinces.open-api.vn/api/w/');
-      const allWards = wardsResponse.data;
-
-      // Lấy tên tỉnh/thành phố
-      if (province) {
-        const provinceResponse = await axios.get(`https://provinces.open-api.vn/api/p/${province}`);
-        provinceName = provinceResponse.data.name;
-      }
-      
-      // Lấy tên quận/huyện
-      if (district) {
-        const districtResponse = await axios.get(`https://provinces.open-api.vn/api/d/${district}`);
-        districtName = districtResponse.data.name;
-      }
-      
-      // Tìm tên ward từ danh sách đã lấy
-      if (ward) {
-        const wardData = allWards.find(w => w.code.toString() === ward.toString());
-        if (wardData) {
-          wardName = wardData.name;
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching address details:', error);
-      return res.status(500).json({
+    // Lấy thông tin hiện tại của user
+    const currentUserQuery = 'SELECT * FROM users_register WHERE id = $1';
+    const currentUser = await db.query(currentUserQuery, [userId]);
+    
+    if (currentUser.rows.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: "Không thể cập nhật thông tin địa chỉ. Vui lòng thử lại sau."
+        message: "Không tìm thấy thông tin người dùng"
       });
     }
 
-    // Cập nhật thông tin trong database - Chỉ lưu tên địa chỉ
+    const currentData = currentUser.rows[0];
+
+    // Tạo object chứa dữ liệu cập nhật, giữ lại giá trị cũ nếu không có dữ liệu mới
+    const updatedData = {
+      full_name: req.body.full_name || currentData.full_name,
+      id_card: req.body.id_card || currentData.id_card,
+      province: req.body.province || currentData.province,
+      district: req.body.district || currentData.district,
+      ward: req.body.ward || currentData.ward,
+      street: req.body.street || currentData.street,
+      tax_code: req.body.tax_code || currentData.tax_code,
+      business_license: req.body.business_license || currentData.business_license,
+      bank_name: req.body.bank_name || currentData.bank_name,
+      bank_account: req.body.bank_account || currentData.bank_account
+    };
+
+    // Cập nhật thông tin
     const updateQuery = `
       UPDATE users_register 
       SET 
@@ -1728,49 +1700,25 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
     `;
 
     const values = [
-      full_name,
-      id_card || null,
-      provinceName || null,  // Lưu tên tỉnh/thành phố
-      districtName || null,  // Lưu tên quận/huyện
-      wardName || null,      // Lưu tên phường/xã
-      street || null,
-      tax_code || null,
-      business_license || null,
-      bank_name || null,
-      bank_account || null,
+      updatedData.full_name,
+      updatedData.id_card,
+      updatedData.province,
+      updatedData.district,
+      updatedData.ward,
+      updatedData.street,
+      updatedData.tax_code,
+      updatedData.business_license,
+      updatedData.bank_name,
+      updatedData.bank_account,
       userId
     ];
 
-    const updateResult = await db.query(updateQuery, values);
+    const result = await db.query(updateQuery, values);
 
-    if (updateResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy thông tin người dùng"
-      });
-    }
-
-    // Format lại dữ liệu trả về - Chỉ trả về tên địa chỉ
-    const updatedUser = updateResult.rows[0];
-    
     res.json({
       success: true,
       message: "Cập nhật thông tin thành công",
-      data: {
-        id: updatedUser.id,
-        full_name: updatedUser.full_name,
-        phone: updatedUser.phone,
-        id_card: updatedUser.id_card,
-        province: updatedUser.province,    // Trả về tên tỉnh/thành phố
-        district: updatedUser.district,    // Trả về tên quận/huyện
-        ward: updatedUser.ward,            // Trả về tên phường/xã
-        street: updatedUser.street,
-        tax_code: updatedUser.tax_code,
-        business_license: updatedUser.business_license,
-        bank_name: updatedUser.bank_name,
-        bank_account: updatedUser.bank_account,
-        updated_at: updatedUser.updated_at
-      }
+      data: result.rows[0]
     });
 
   } catch (error) {
