@@ -1216,7 +1216,9 @@ app.post("/mobile/register", async (req, res) => {
     password,
     fullName,
     idCard,
-    address
+    address,
+    bank_name,
+    bank_account
   } = req.body;
 
   // Validate required fields
@@ -1255,7 +1257,9 @@ app.post("/mobile/register", async (req, res) => {
       phone,
       fullName,
       idCard,
-      address
+      address,
+      bank_name,
+      bank_account
     });
 
     // Insert into users_register
@@ -1269,8 +1273,10 @@ app.post("/mobile/register", async (req, res) => {
         district,
         ward,
         street,
+        bank_name,
+        bank_account,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
       RETURNING id`,
       [
         phone,
@@ -1280,7 +1286,9 @@ app.post("/mobile/register", async (req, res) => {
         address.province,
         address.district,
         address.ward,
-        address.street
+        address.street,
+        bank_name,
+        bank_account
       ]
     );
 
@@ -1559,6 +1567,8 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
         id, full_name, phone, id_card,
         province, district, ward,
         street, tax_code, business_license,
+        bank_name,
+        bank_account,
         updated_at
       FROM users_register 
       WHERE id = $1
@@ -1614,6 +1624,8 @@ app.get("/mobile/user-info", authenticateToken, async (req, res) => {
           street: userData.street,
           tax_code: userData.tax_code,
           business_license: userData.business_license,
+          bank_name: userData.bank_name,
+          bank_account: userData.bank_account,
           updated_at: userData.updated_at
         }
       });
@@ -1648,7 +1660,9 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       ward,
       street,
       tax_code,
-      business_license
+      business_license,
+      bank_name,
+      bank_account
     } = req.body;
 
     // Validate dữ liệu bắt buộc
@@ -1706,8 +1720,10 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         street = $6,
         tax_code = $7,
         business_license = $8,
+        bank_name = $9,
+        bank_account = $10,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $9
+      WHERE id = $11
       RETURNING *
     `;
 
@@ -1720,6 +1736,8 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
       street || null,
       tax_code || null,
       business_license || null,
+      bank_name || null,
+      bank_account || null,
       userId
     ];
 
@@ -1749,6 +1767,8 @@ app.post("/mobile/update-profile", authenticateToken, async (req, res) => {
         street: updatedUser.street,
         tax_code: updatedUser.tax_code,
         business_license: updatedUser.business_license,
+        bank_name: updatedUser.bank_name,
+        bank_account: updatedUser.bank_account,
         updated_at: updatedUser.updated_at
       }
     });
