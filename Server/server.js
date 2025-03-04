@@ -56,6 +56,7 @@ const {
   host,
   database,
 } = require("pg/lib/defaults");
+const { styleText } = require("util");
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -109,7 +110,8 @@ app.post("/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        error: "Tên đăng nhập hoặc mật khẩu không đúng"
+        error: "Tên đăng nhập hoặc mật khẩu không đúng",
+        styleText: "white"
       });
     }
 

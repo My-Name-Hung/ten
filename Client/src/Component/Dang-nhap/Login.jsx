@@ -8,8 +8,8 @@ import logoTen from "../../assets/Footer/logo-ten.jpg";
 import logo1 from "../../assets/Footer/logo1.png";
 import logoText from "../../assets/Footer/logotext.png";
 // import assets
+import fantadau from "../../assets/AboutUs/fantadau.jpg";
 import logo from "../../assets/AboutUs/Logo_Coke.png";
-import video from "../../assets/AboutUs/video.mp4";
 
 // import icon
 import {
@@ -97,7 +97,7 @@ const Login = () => {
       <div className="loginPage flex">
         <div className="container bg-red-600 flex">
           <div className="videoDiv">
-            <video src={video} autoPlay muted loop></video>
+            <img src={fantadau} alt="fantadau" />
             <div className="textDiv"></div>
           </div>
 
