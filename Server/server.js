@@ -56,7 +56,6 @@ const {
   host,
   database,
 } = require("pg/lib/defaults");
-const { styleText } = require("util");
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -110,8 +109,7 @@ app.post("/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        error: "Tên đăng nhập hoặc mật khẩu không đúng",
-        styleText: "white"
+        error: "Tên đăng nhập hoặc mật khẩu không đúng"
       });
     }
 
@@ -1789,6 +1787,38 @@ app.delete("/mobile/delete-account", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Không thể xóa tài khoản. Vui lòng thử lại sau."
+    });
+  }
+});
+
+// Update store location
+app.put("/store-location/:id", async (req, res) => {
+  const { latitude, longitude } = req.body;
+  try {
+    const result = await db.query(
+      `UPDATE info 
+       SET latitude = $1, 
+           longitude = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE store_id = $3
+       RETURNING *`,
+      [latitude, longitude, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy cửa hàng" });
+    }
+
+    res.json({
+      success: true,
+      message: "Cập nhật vị trí thành công",
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Error updating store location:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Lỗi khi cập nhật vị trí" 
     });
   }
 });
