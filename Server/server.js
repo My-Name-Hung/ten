@@ -1348,9 +1348,8 @@ app.post("/mobile/login", async (req, res) => {
   try {
     // Check login credentials
     const userResult = await db.query(
-      `SELECT ul.*, ur.full_name, ur.id_card, ur.province, ur.district, ur.ward, ur.street
+      `SELECT ul.*
        FROM users_login ul
-       JOIN users_register ur ON ul.user_id = ur.id 
        WHERE ul.phone = $1 AND ul.password = $2`,
       [phone, password]
     );
