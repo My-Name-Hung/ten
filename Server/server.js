@@ -17,7 +17,7 @@ const axios = require('axios');
 // Setting cors
 app.use(
   cors({
-    origin: ["https://windowaudit-demo.netlify.app", "https://ten-p521.onrender.com", "http://localhost:5173"],
+    origin: ["https://windowaudit-demo.netlify.app", "https://ten-9k62.onrender.com", "http://localhost:5173"],
     credentials: true
   })
 );
